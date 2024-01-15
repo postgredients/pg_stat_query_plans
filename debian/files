@@ -1,0 +1,13 @@
+pgqp-ya_1.0_amd64.buildinfo database optional
+postgresql-11-pgqp-ya-dbgsym_1.0_amd64.deb debug optional automatic=yes
+postgresql-11-pgqp-ya_1.0_amd64.deb database optional
+postgresql-12-pgqp-ya-dbgsym_1.0_amd64.deb debug optional automatic=yes
+postgresql-12-pgqp-ya_1.0_amd64.deb database optional
+postgresql-13-pgqp-ya-dbgsym_1.0_amd64.deb debug optional automatic=yes
+postgresql-13-pgqp-ya_1.0_amd64.deb database optional
+postgresql-14-pgqp-ya-dbgsym_1.0_amd64.deb debug optional automatic=yes
+postgresql-14-pgqp-ya_1.0_amd64.deb database optional
+postgresql-15-pgqp-ya-dbgsym_1.0_amd64.deb debug optional automatic=yes
+postgresql-15-pgqp-ya_1.0_amd64.deb database optional
+postgresql-16-pgqp-ya-dbgsym_1.0_amd64.deb debug optional automatic=yes
+postgresql-16-pgqp-ya_1.0_amd64.deb database optional

@@ -1,0 +1,34 @@
+ [                                                                                                                                              
+   "Plan": {                                                                                                                                   
+     "Node Type": "ModifyTable",                                                                                                                
+     "Operation": "Update",                                                                                                                     
+     "Parallel Aware": false,                                                                                                                   
+     "Relation Name": "pgbench_accounts",                                                                                                       
+     "Schema": "public",                                                                                                                        
+     "Alias": "pgbench_accounts",                                                                                                               
+     "Startup Cost": 0.29,                                                                                                                      
+     "Total Cost": 8.31,                                                                                                                        
+     "Plan Rows": 1,                                                                                                                            
+     "Plan Width": 103,                                                                                                                         
+     "Plans": [                                                                                                                                 
+       {                                                                                                                                        
+         "Node Type": "Index Scan",                                                                                                             
+         "Parent Relationship": "Member",                                                                                                       
+         "Parallel Aware": false,                                                                                                               
+         "Scan Direction": "Forward",                                                                                                           
+         "Index Name": "pgbench_accounts_pkey",                                                                                                 
+         "Relation Name": "pgbench_accounts",                                                                                                   
+         "Schema": "public",                                                                                                                    
+         "Alias": "pgbench_accounts",                                                                                                           
+         "Startup Cost": 0.29,                                                                                                                  
+         "Total Cost": 8.31,                                                                                                                    
+         "Plan Rows": 1,                                                                                                                        
+         "Plan Width": 103,                                                                                                                     
+         "Output": ["aid", "bid", "(abalance + 4961)", "filler", "ctid"],                                                                       
+         "Index Cond": "(pgbench_accounts.aid = 31205)"                                                                                         
+       }                                                                                                                                        
+     ]                                                                                                                                          
+   },                                                                                                                                           
+   "Triggers": [                                                                                                                                
+   ]                                                                                                                                            
+ ]

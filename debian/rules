@@ -1,0 +1,25 @@
+#!/usr/bin/make -f
+
+export PG_SUPPORTED_VERSIONS=installed
+PKGVER = $(shell dpkg-parsechangelog | awk -F '[:-]' '/^Version:/ { print substr($$2, 2) }')
+EXCLUDE = --exclude-vcs --exclude=debian
+
+override_dh_auto_build:
+	# do nothing
+
+override_dh_auto_test:
+	# nothing to do here, upstream tests used, see debian/tests/*
+
+override_dh_auto_install:
+	# build all supported versions
+	+export PG_SUPPORTED_VERSIONS=installed && pg_buildext loop postgresql-%v-pgqp-ya
+
+override_dh_installdocs:
+
+override_dh_installchangelogs:
+	dh_installchangelogs CHANGELOG.md upstream
+
+orig: debian/control clean
+	cd .. && tar czf pgqp-ya_$(PKGVER).orig.tar.gz $(EXCLUDE) pgqp-ya-$(PKGVER)
+%:
+	dh $@
