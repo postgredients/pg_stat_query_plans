@@ -442,7 +442,8 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
 
   /* Create new entry, if not present */
   if (!entry) {
-    const char *norm_query;
+    char *norm_query;
+    int need_free = 0;
     /*
      * Create a new, normalized query string if caller asked.  We don't
      * need to hold the lock while doing this work.  (Note: in any case,
@@ -453,9 +454,10 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
     if (jstate) {
       LWLockRelease(pgqp->lock);
       norm_query = gen_normquery(jstate, query, query_location, &query_len);
+      need_free = 1;
       LWLockAcquire(pgqp->lock, LW_SHARED);
     } else {
-      norm_query = query;
+      norm_query = (char*)query;
     }
     /* Need exclusive lock to make a new hashtable entry - promote */
     LWLockRelease(pgqp->lock);
@@ -488,6 +490,11 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
     /* Not need exclusive lock for a while - switch to shared  */
     LWLockRelease(pgqp->lock);
     LWLockAcquire(pgqp->lock, LW_SHARED);
+
+    /* We postpone this clean-up until we're out of the lock */
+    if (need_free && norm_query)
+        pfree(norm_query);
+
   }
 
   if (execution_plan) {
