@@ -438,8 +438,8 @@ static void pgqp_shmem_startup(void) {
   info_texts.keysize = sizeof(pgqpTextStorageKey);
   info_texts.entrysize = sizeof(pgqpTextStorageEntry);
   pgqp_texts = ShmemInitHash(
-      "pg_stat_query_plans texts", pgqp_max_plans + pgqp_max,
-      pgqp_max_plans + pgqp_max, &info_texts, HASH_ELEM | HASH_BLOBS);
+      "pg_stat_query_plans texts", pgqp_max_plans*3 + pgqp_max,
+      pgqp_max_plans*3 + pgqp_max, &info_texts, HASH_ELEM | HASH_BLOBS);
 
   pgqp_storage = ShmemInitStruct("pg_stat_query_plans storage",
                                  pgqp_storage_memory, &found);
@@ -1537,7 +1537,7 @@ static Size pgqp_memsize(void) {
   size = add_size(size, hash_estimate_size(pgqp_max * MEAN_PLANS_PER_QUERY,
                                            sizeof(pgqpPlanEntry)));
   size = add_size(size,
-                  hash_estimate_size(pgqp_max + pgqp_max * MEAN_PLANS_PER_QUERY,
+                  hash_estimate_size(pgqp_max + pgqp_max * MEAN_PLANS_PER_QUERY * 3,
                                      sizeof(pgqpTextStorageEntry)));
   size = add_size(size, MAXALIGN(pgqp_storage_memory));
 
