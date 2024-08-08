@@ -141,14 +141,14 @@ int pgqp_max_plans;        /* max # plans to track */
 int pgqp_storage_memory;   /* memory used to store plan and query texts */
 int pgqp_max_query_len;    /* maximum query text length */
 int pgqp_max_plan_len;     /* maximum execution plan text length */
-int pgqp_track;            /* tracking level */
-int pgqp_encoding;         /* compress stored texts */
+int pgqp_track = PGQP_TRACK_ALL;            /* tracking level */
+int pgqp_encoding = PGQP_PGLZ;         /* compress stored texts */
 bool pgqp_track_utility;   /* whether to track utility commands */
 bool pgqp_track_planning;  /* whether to track planning duration */
 bool pgqp_track_plans;     /* track execution plans or not */
 bool pgqp_normalize_plans; /* Normalize plans so pans differ in constans have
                               the same planId */
-int example_plan_format;   /* Plan representation style */
+int example_plan_format = EXPLAIN_FORMAT_JSON;   /* Plan representation style */
 bool example_log_verbose;  /* Set VERBOSE for EXPLAIN on logging */
 bool example_log_triggers; /* Log trigger trace in EXPLAIN */
 
