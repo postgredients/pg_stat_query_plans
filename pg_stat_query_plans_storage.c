@@ -556,11 +556,20 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
       es = NewExplainState();
       es->verbose = example_log_verbose;
       es->format = example_plan_format;
-      ExplainBeginOutput(es);
-      ExplainPrintPlan(es, qd);
-      if (example_log_triggers)
-        ExplainPrintTriggers(es, qd);
-      ExplainEndOutput(es);
+      PG_TRY();
+      {
+        ExplainBeginOutput(es);
+        ExplainPrintPlan(es, qd);
+        if (example_log_triggers)
+          ExplainPrintTriggers(es, qd);
+        ExplainEndOutput(es);
+      }
+      PG_CATCH();
+      {
+        resetStringInfo(es->str);
+        appendStringInfo(es->str, "Failed to generate plan info");
+      }
+      PG_END_TRY();
       /* Store plan text */
       plan_entry->example_plan =
           pgqp_store_text(es->str->data, PGQP_SQLPLAN, planId, queryId);
