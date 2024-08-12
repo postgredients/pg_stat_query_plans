@@ -744,13 +744,24 @@ static void pgqp_ExecutorEnd(QueryDesc *queryDesc) {
       es_planid->costs = false;
       es_planid->verbose = true;
       es_planid->format = EXPLAIN_FORMAT_TEXT;
-      ExplainBeginOutput(es_planid);
-      ExplainPrintPlan(es_planid, queryDesc);
-      ExplainEndOutput(es_planid);
+      PG_TRY();
+      {
+        ExplainBeginOutput(es_planid);
+        ExplainPrintPlan(es_planid, queryDesc);
+        ExplainEndOutput(es_planid);
+      }
+      PG_CATCH();
+      {
+        resetStringInfo(es_planid->str);
+        appendStringInfo(es_planid->str, "Failed to generate plan info");
+      }
+      PG_END_TRY();
       if (pgqp_normalize_plans) {
         execution_plan = gen_normplan(es_planid->str->data);
-      } else
+      } else {
         execution_plan = es_planid->str;
+      }
+
     }
 
     pgqp_store(
