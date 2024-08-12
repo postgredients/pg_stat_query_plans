@@ -128,17 +128,17 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
                                                             |   Output: $1, $2::text                                           +|       | 
                                                             |   ->  Result                                                     +|       | 
                                                             |         Output: $3, $4::text                                     +|       | 
-                                                            |                                                                   |       | 
+                                                            | Query Identifier: -$5                                             |       | 
  SELECT ' ' || ' !' ;;   SELECT 1 + 4 ;;                    | Result                                                           +|     1 |    1
                                                             |   Output: $1::text                                               +|       | 
-                                                            |                                                                   |       | 
+                                                            | Query Identifier: $2                                              |       | 
  SELECT 'hello'                                            +| Result                                                           +|     4 |    4
    -- multiline                                            +|   Output: $1::text                                               +|       | 
-   AS "text";                                               |                                                                   |       | 
+   AS "text";                                               | Query Identifier: -$2                                             |       | 
  SELECT 1 + 1 + 1 AS "add"                                  | Result                                                           +|     3 |    3
-                                                            |   Output: $1                                                      |       | 
+                                                            |   Output: $1Query Identifier: -$2                                 |       | 
  SELECT 1 AS "int";                                         | Result                                                           +|     2 |    2
-                                                            |   Output: $1                                                      |       | 
+                                                            |   Output: $1Query Identifier: $2                                  |       | 
  SELECT 1 AS i UNION SELECT 2 ORDER BY i;                   | Unique                                                           +|     1 |    2
                                                             |   Output: ($1)                                                   +|       | 
                                                             |   ->  Sort                                                       +|       | 
@@ -147,24 +147,24 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
                                                             |         ->  Append                                               +|       | 
                                                             |               ->  Result                                         +|       | 
                                                             |                     Output: $4->  Result                         +|       | 
-                                                            |                     Output: $5                                    |       | 
+                                                            |                     Output: $5Query Identifier: $6                |       | 
  SELECT 2.0 AS "float" ;                                   +| Result                                                           +|     1 |    1
- SELECT 'world' AS "text" ;                                +|   Output: $1                                                      |       | 
+ SELECT 'world' AS "text" ;                                +|   Output: $1Query Identifier: -$2                                 |       | 
  COMMIT;                                                    |                                                                   |       | 
  SELECT 3 + 3 ;;;   SELECT ' ' || ' !' ;;   SELECT 1 + 4 ;; | Result                                                           +|     2 |    2
-                                                            |   Output: $1                                                      |       | 
+                                                            |   Output: $1Query Identifier: -$2                                 |       | 
  SELECT pg_stat_query_plans_reset();                        | Result                                                           +|     1 |    1
                                                             |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, $3::bigint)+|       | 
-                                                            |                                                                   |       | 
+                                                            | Query Identifier: -$4                                             |       | 
  WITH t(f) AS (                                            +| Sort                                                             +|     1 |    2
    VALUES (1.0), (2.0)                                     +|   Output: "*VALUES*".column1                                     +|       | 
  )                                                         +|   Sort Key: "*VALUES*".column1                                   +|       | 
    SELECT f FROM t ORDER BY f;                              |   ->  Values Scan on "*VALUES*"                                  +|       | 
                                                             |         Output: "*VALUES*".column1                               +|       | 
-                                                            |                                                                   |       | 
+                                                            | Query Identifier: $1                                              |       | 
  select '{"a":1, "b":2}'::jsonb ? 'b';                      | Result                                                           +|     1 |    1
                                                             |   Output: true                                                   +|       | 
-                                                            |                                                                   |       | 
+                                                            | Query Identifier: $1                                              |       | 
 (11 rows)
 
 --
@@ -253,46 +253,46 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
                                                               |   ->  Seq Scan on pg_temp.test                                   +|       | 
                                                               |         Output: ctid                                             +|       | 
                                                               |         Filter: (test.a > $1)                                    +|       | 
-                                                              |                                                                   |       | 
+                                                              | Query Identifier: $2                                              |       | 
  INSERT INTO test (a, b) VALUES (1, 'a'), (2, 'b'), (3, 'c'); | Insert on pg_temp.test                                           +|     1 |    3
                                                               |   ->  Values Scan on "*VALUES*"                                  +|       | 
                                                               |         Output: "*VALUES*".column1, "*VALUES*".column2           +|       | 
-                                                              |                                                                   |       | 
+                                                              | Query Identifier: $1                                              |       | 
  INSERT INTO test VALUES(generate_series(1, 10), 'aaa');      | Insert on pg_temp.test                                           +|     1 |   10
                                                               |   ->  ProjectSet                                                 +|       | 
                                                               |         Output: generate_series($1, $2), $3::character($4)       +|       | 
                                                               |         ->  Result                                               +|       | 
-                                                              |                                                                   |       | 
+                                                              | Query Identifier: $5                                              |       | 
  SELECT * FROM test ORDER BY a;                               | Sort                                                             +|     1 |   12
                                                               |   Output: a, b                                                   +|       | 
                                                               |   Sort Key: test.a                                               +|       | 
                                                               |   ->  Seq Scan on pg_temp.test                                   +|       | 
                                                               |         Output: a, b                                             +|       | 
-                                                              |                                                                   |       | 
+                                                              | Query Identifier: -$1                                             |       | 
  SELECT * FROM test WHERE a > 5 ORDER BY a ;                  | Sort                                                             +|     2 |    4
                                                               |   Output: a, b                                                   +|       | 
                                                               |   Sort Key: test.a                                               +|       | 
                                                               |   ->  Seq Scan on pg_temp.test                                   +|       | 
                                                               |         Output: a, b                                             +|       | 
                                                               |         Filter: (test.a > $1)                                    +|       | 
-                                                              |                                                                   |       | 
+                                                              | Query Identifier: $2                                              |       | 
  SELECT * FROM test WHERE a IN (1, 2, 3, 4, 5);               | Seq Scan on pg_temp.test                                         +|     1 |    8
                                                               |   Output: a, b                                                   +|       | 
                                                               |   Filter: (test.a = ANY ($1::integer[]))                         +|       | 
-                                                              |                                                                   |       | 
+                                                              | Query Identifier: $2                                              |       | 
  SELECT pg_stat_query_plans_reset();                          | Result                                                           +|     1 |    1
                                                               |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, $3::bigint)+|       | 
-                                                              |                                                                   |       | 
+                                                              | Query Identifier: -$4                                             |       | 
  UPDATE test SET b = '111' WHERE a = 1 ;                      | Update on pg_temp.test                                           +|     6 |    6
                                                               |   ->  Seq Scan on pg_temp.test                                   +|       | 
                                                               |         Output: $1::character($2), ctid                          +|       | 
                                                               |         Filter: (test.a = $3)                                    +|       | 
-                                                              |                                                                   |       | 
+                                                              | Query Identifier: -$4                                             |       | 
  UPDATE test SET b = 'bbb' WHERE a > 7;                       | Update on pg_temp.test                                           +|     1 |    3
                                                               |   ->  Seq Scan on pg_temp.test                                   +|       | 
                                                               |         Output: $1::character($2), ctid                          +|       | 
                                                               |         Filter: (test.a > $3)                                    +|       | 
-                                                              |                                                                   |       | 
+                                                              | Query Identifier: -$4                                             |       | 
 (9 rows)
 
 --
@@ -378,16 +378,16 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
 -------------------------------------+-------------------------------------------------------------------+-------+------
  SELECT 'hello world'::TEXT          | Result                                                           +|     1 |    1
                                      |   Output: $1::text                                               +|       | 
-                                     |                                                                   |       | 
+                                     | Query Identifier: -$2                                             |       | 
  SELECT PLUS_ONE(8);                 | Result                                                           +|     2 |    2
                                      |   Output: plus_one($1)                                           +|       | 
-                                     |                                                                   |       | 
+                                     | Query Identifier: $2                                              |       | 
  SELECT PLUS_TWO(3);                 | Result                                                           +|     2 |    2
                                      |   Output: plus_two($1)                                           +|       | 
-                                     |                                                                   |       | 
+                                     | Query Identifier: $2                                              |       | 
  SELECT pg_stat_query_plans_reset(); | Result                                                           +|     1 |    1
                                      |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, $3::bigint)+|       | 
-                                     |                                                                   |       | 
+                                     | Query Identifier: -$4                                             |       | 
 (4 rows)
 
 --
@@ -442,24 +442,24 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
                 query                |                          normalized_plan                          | calls | rows 
 -------------------------------------+-------------------------------------------------------------------+-------+------
  SELECT (i + 1 + 1.0)::INTEGER       | Result                                                           +|     2 |    2
-                                     |   Output: $1                                                      |       | 
+                                     |   Output: $1Query Identifier: -$2                                 |       | 
  SELECT (i + 1.0)::INTEGER LIMIT 1   | Limit                                                            +|     2 |    2
                                      |   Output: (((($1)::numeric + $1))::integer)                      +|       | 
                                      |   ->  Result                                                     +|       | 
                                      |         Output: ((($1)::numeric + $2))::integer                  +|       | 
-                                     |                                                                   |       | 
+                                     | Query Identifier: -$3                                             |       | 
  SELECT PLUS_ONE(3);                 | Result                                                           +|     2 |    2
                                      |   Output: plus_one($1)                                           +|       | 
-                                     |                                                                   |       | 
+                                     | Query Identifier: -$2                                             |       | 
  SELECT PLUS_TWO(-1);                | Result                                                           +|     1 |    1
                                      |   Output: plus_two($1::integer)                                  +|       | 
-                                     |                                                                   |       | 
+                                     | Query Identifier: $2                                              |       | 
  SELECT PLUS_TWO(2);                 | Result                                                           +|     1 |    1
                                      |   Output: plus_two($1)                                           +|       | 
-                                     |                                                                   |       | 
+                                     | Query Identifier: $2                                              |       | 
  SELECT pg_stat_query_plans_reset(); | Result                                                           +|     1 |    1
                                      |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, $3::bigint)+|       | 
-                                     |                                                                   |       | 
+                                     | Query Identifier: -$4                                             |       | 
 (6 rows)
 
 --
@@ -535,7 +535,7 @@ SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR UPDATE SKIP LOCK
 SELECT calls, planid, normalized_plan, query FROM pg_stat_query_plans ORDER BY query COLLATE "C";
  calls |        planid        |                               normalized_plan                               |                                           query                                           
 -------+----------------------+-----------------------------------------------------------------------------+-------------------------------------------------------------------------------------------
-     1 |  6498045151306528702 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR KEY SHARE;
+     1 | -2402585108552408733 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR KEY SHARE;
        |                      |   Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid      +| 
        |                      |   ->  Hash Join                                                            +| 
        |                      |         Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid+| 
@@ -547,8 +547,8 @@ SELECT calls, planid, normalized_plan, query FROM pg_stat_query_plans ORDER BY q
        |                      |               Output: pgqp_a.id, pgqp_a.ctid                               +| 
        |                      |               ->  Seq Scan on public.pgqp_a                                +| 
        |                      |                     Output: pgqp_a.id, pgqp_a.ctid                         +| 
-       |                      |                                                                             | 
-     1 |  6498045151306528702 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR NO KEY UPDATE;
+       |                      | Query Identifier: $1                                                        | 
+     1 |  5953087678102897204 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR NO KEY UPDATE;
        |                      |   Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid      +| 
        |                      |   ->  Hash Join                                                            +| 
        |                      |         Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid+| 
@@ -560,8 +560,8 @@ SELECT calls, planid, normalized_plan, query FROM pg_stat_query_plans ORDER BY q
        |                      |               Output: pgqp_a.id, pgqp_a.ctid                               +| 
        |                      |               ->  Seq Scan on public.pgqp_a                                +| 
        |                      |                     Output: pgqp_a.id, pgqp_a.ctid                         +| 
-       |                      |                                                                             | 
-     1 |  6498045151306528702 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR SHARE;
+       |                      | Query Identifier: -$1                                                       | 
+     1 |  5953087678102897204 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR SHARE;
        |                      |   Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid      +| 
        |                      |   ->  Hash Join                                                            +| 
        |                      |         Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid+| 
@@ -573,8 +573,8 @@ SELECT calls, planid, normalized_plan, query FROM pg_stat_query_plans ORDER BY q
        |                      |               Output: pgqp_a.id, pgqp_a.ctid                               +| 
        |                      |               ->  Seq Scan on public.pgqp_a                                +| 
        |                      |                     Output: pgqp_a.id, pgqp_a.ctid                         +| 
-       |                      |                                                                             | 
-     1 |  6498045151306528702 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR UPDATE NOWAIT;
+       |                      | Query Identifier: -$1                                                       | 
+     1 |  5953087678102897204 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR UPDATE NOWAIT;
        |                      |   Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid      +| 
        |                      |   ->  Hash Join                                                            +| 
        |                      |         Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid+| 
@@ -586,8 +586,8 @@ SELECT calls, planid, normalized_plan, query FROM pg_stat_query_plans ORDER BY q
        |                      |               Output: pgqp_a.id, pgqp_a.ctid                               +| 
        |                      |               ->  Seq Scan on public.pgqp_a                                +| 
        |                      |                     Output: pgqp_a.id, pgqp_a.ctid                         +| 
-       |                      |                                                                             | 
-     1 |  6498045151306528702 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR UPDATE OF pgqp_a;
+       |                      | Query Identifier: -$1                                                       | 
+     1 | -2402585108552408733 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR UPDATE OF pgqp_a;
        |                      |   Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid      +| 
        |                      |   ->  Hash Join                                                            +| 
        |                      |         Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid+| 
@@ -599,8 +599,8 @@ SELECT calls, planid, normalized_plan, query FROM pg_stat_query_plans ORDER BY q
        |                      |               Output: pgqp_a.id, pgqp_a.ctid                               +| 
        |                      |               ->  Seq Scan on public.pgqp_a                                +| 
        |                      |                     Output: pgqp_a.id, pgqp_a.ctid                         +| 
-       |                      |                                                                             | 
-     1 |  3740750465731906550 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR UPDATE OF pgqp_b, pgqp_a;
+       |                      | Query Identifier: $1                                                        | 
+     1 | -5205424379103719585 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR UPDATE OF pgqp_b, pgqp_a;
        |                      |   Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_b.ctid, pgqp_a.ctid      +| 
        |                      |   ->  Hash Join                                                            +| 
        |                      |         Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_b.ctid, pgqp_a.ctid+| 
@@ -612,8 +612,8 @@ SELECT calls, planid, normalized_plan, query FROM pg_stat_query_plans ORDER BY q
        |                      |               Output: pgqp_a.id, pgqp_a.ctid                               +| 
        |                      |               ->  Seq Scan on public.pgqp_a                                +| 
        |                      |                     Output: pgqp_a.id, pgqp_a.ctid                         +| 
-       |                      |                                                                             | 
-     1 |  3740750465731906550 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR UPDATE OF pgqp_b;
+       |                      | Query Identifier: -$1                                                       | 
+     1 |  6950240804931183197 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR UPDATE OF pgqp_b;
        |                      |   Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_b.ctid, pgqp_a.ctid      +| 
        |                      |   ->  Hash Join                                                            +| 
        |                      |         Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_b.ctid, pgqp_a.ctid+| 
@@ -625,8 +625,8 @@ SELECT calls, planid, normalized_plan, query FROM pg_stat_query_plans ORDER BY q
        |                      |               Output: pgqp_a.id, pgqp_a.ctid                               +| 
        |                      |               ->  Seq Scan on public.pgqp_a                                +| 
        |                      |                     Output: pgqp_a.id, pgqp_a.ctid                         +| 
-       |                      |                                                                             | 
-     1 |  6498045151306528702 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR UPDATE SKIP LOCKED;
+       |                      | Query Identifier: $1                                                        | 
+     1 | -2402585108552408733 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR UPDATE SKIP LOCKED;
        |                      |   Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid      +| 
        |                      |   ->  Hash Join                                                            +| 
        |                      |         Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid+| 
@@ -638,8 +638,8 @@ SELECT calls, planid, normalized_plan, query FROM pg_stat_query_plans ORDER BY q
        |                      |               Output: pgqp_a.id, pgqp_a.ctid                               +| 
        |                      |               ->  Seq Scan on public.pgqp_a                                +| 
        |                      |                     Output: pgqp_a.id, pgqp_a.ctid                         +| 
-       |                      |                                                                             | 
-     2 |  6498045151306528702 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR UPDATE;
+       |                      | Query Identifier: $1                                                        | 
+     2 | -2402585108552408733 | LockRows                                                                   +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id FOR UPDATE;
        |                      |   Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid      +| 
        |                      |   ->  Hash Join                                                            +| 
        |                      |         Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id, pgqp_a.ctid, pgqp_b.ctid+| 
@@ -651,8 +651,8 @@ SELECT calls, planid, normalized_plan, query FROM pg_stat_query_plans ORDER BY q
        |                      |               Output: pgqp_a.id, pgqp_a.ctid                               +| 
        |                      |               ->  Seq Scan on public.pgqp_a                                +| 
        |                      |                     Output: pgqp_a.id, pgqp_a.ctid                         +| 
-       |                      |                                                                             | 
-     1 | -2013908579591505525 | Hash Join                                                                  +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id;
+       |                      | Query Identifier: $1                                                        | 
+     1 | -2653678848630551659 | Hash Join                                                                  +| SELECT * FROM pgqp_a JOIN pgqp_b ON pgqp_b.a_id = pgqp_a.id;
        |                      |   Output: pgqp_a.id, pgqp_b.id, pgqp_b.a_id                                +| 
        |                      |   Inner Unique: true                                                       +| 
        |                      |   Hash Cond: (pgqp_b.a_id = pgqp_a.id)                                     +| 
@@ -662,10 +662,10 @@ SELECT calls, planid, normalized_plan, query FROM pg_stat_query_plans ORDER BY q
        |                      |         Output: pgqp_a.id                                                  +| 
        |                      |         ->  Seq Scan on public.pgqp_a                                      +| 
        |                      |               Output: pgqp_a.id                                            +| 
-       |                      |                                                                             | 
-     1 |  3011031119442496676 | Result                                                                     +| SELECT pg_stat_query_plans_reset();
+       |                      | Query Identifier: $1                                                        | 
+     1 |  3681815378424448864 | Result                                                                     +| SELECT pg_stat_query_plans_reset();
        |                      |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, $3::bigint)          +| 
-       |                      |                                                                             | 
+       |                      | Query Identifier: -$4                                                       | 
 (11 rows)
 
 DROP TABLE pgqp_a, pgqp_b CASCADE;
@@ -701,10 +701,10 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
                 query                |                          normalized_plan                          | calls | rows 
 -------------------------------------+-------------------------------------------------------------------+-------+------
  SELECT 1;                           | Result                                                           +|     1 |    1
-                                     |   Output: $1                                                      |       | 
+                                     |   Output: $1Query Identifier: $2                                  |       | 
  SELECT pg_stat_query_plans_reset(); | Result                                                           +|     1 |    1
                                      |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, $3::bigint)+|       | 
-                                     |                                                                   |       | 
+                                     | Query Identifier: -$4                                             |       | 
 (2 rows)
 
 --
@@ -750,16 +750,16 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
                 query                |                          normalized_plan                          | calls | rows 
 -------------------------------------+-------------------------------------------------------------------+-------+------
  SELECT 1 AS "ONE";                  | Result                                                           +|     1 |    1
-                                     |   Output: $1                                                      |       | 
+                                     |   Output: $1Query Identifier: $2                                  |       | 
  SELECT 1 AS "ONE";                  | Result                                                           +|     1 |    1
-                                     |   Output: $1                                                      |       | 
+                                     |   Output: $1Query Identifier: $2                                  |       | 
  SELECT 1+1 AS "TWO";                | Result                                                           +|     1 |    1
-                                     |   Output: $1                                                      |       | 
+                                     |   Output: $1Query Identifier: -$2                                 |       | 
  SELECT 1+1 AS "TWO";                | Result                                                           +|     1 |    1
-                                     |   Output: $1                                                      |       | 
+                                     |   Output: $1Query Identifier: -$2                                 |       | 
  SELECT pg_stat_query_plans_reset(); | Result                                                           +|     1 |    1
                                      |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, $3::bigint)+|       | 
-                                     |                                                                   |       | 
+                                     | Query Identifier: -$4                                             |       | 
 (5 rows)
 
 --
@@ -775,26 +775,26 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
                                               query                                              |                                                                          normalized_plan                                                                           | calls | rows 
 -------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------+------
  SELECT 1 AS "ONE";                                                                              | Result                                                                                                                                                            +|     1 |    1
-                                                                                                 |   Output: $1                                                                                                                                                       |       | 
+                                                                                                 |   Output: $1Query Identifier: $2                                                                                                                                   |       | 
  SELECT 1 AS "ONE";                                                                              | Result                                                                                                                                                            +|     1 |    1
-                                                                                                 |   Output: $1                                                                                                                                                       |       | 
+                                                                                                 |   Output: $1Query Identifier: $2                                                                                                                                   |       | 
  SELECT 1+1 AS "TWO";                                                                            | Result                                                                                                                                                            +|     1 |    1
-                                                                                                 |   Output: $1                                                                                                                                                       |       | 
+                                                                                                 |   Output: $1Query Identifier: -$2                                                                                                                                  |       | 
  SELECT 1+1 AS "TWO";                                                                            | Result                                                                                                                                                            +|     1 |    1
-                                                                                                 |   Output: $1                                                                                                                                                       |       | 
+                                                                                                 |   Output: $1Query Identifier: -$2                                                                                                                                  |       | 
  SELECT pg_stat_query_plans_reset();                                                             | Result                                                                                                                                                            +|     1 |    1
                                                                                                  |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, $3::bigint)                                                                                                 +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: -$4                                                                                                                                              |       | 
  SELECT pg_stat_query_plans_reset(NULL);                                                         | Result                                                                                                                                                            +|     1 |    1
                                                                                                  |   Output: NULL::void                                                                                                                                              +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: $1                                                                                                                                               |       | 
  SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY query COLLATE "C"; | Sort                                                                                                                                                              +|     1 |    5
                                                                                                  |   Output: pg_stat_query_plans.query, pg_stat_query_plans.normalized_plan, pg_stat_query_plans.calls, pg_stat_query_plans.rows, ((pg_stat_query_plans.query)::text)+|       | 
                                                                                                  |   Sort Key: pg_stat_query_plans.query COLLATE "C"                                                                                                                 +|       | 
                                                                                                  |   ->  Function Scan on public.pg_stat_query_plans                                                                                                                 +|       | 
                                                                                                  |         Output: pg_stat_query_plans.query, pg_stat_query_plans.normalized_plan, pg_stat_query_plans.calls, pg_stat_query_plans.rows, pg_stat_query_plans.query    +|       | 
                                                                                                  |         Function Call: pg_stat_query_plans(true)                                                                                                                  +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: -$1                                                                                                                                              |       | 
 (7 rows)
 
 --
@@ -815,11 +815,11 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
                                               query                                              |                                                                          normalized_plan                                                                           | calls | rows 
 -------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------+------
  SELECT 1 AS "ONE";                                                                              | Result                                                                                                                                                            +|     1 |    1
-                                                                                                 |   Output: $1                                                                                                                                                       |       | 
+                                                                                                 |   Output: $1Query Identifier: $2                                                                                                                                   |       | 
  SELECT 1 AS "ONE";                                                                              | Result                                                                                                                                                            +|     1 |    1
-                                                                                                 |   Output: $1                                                                                                                                                       |       | 
+                                                                                                 |   Output: $1Query Identifier: $2                                                                                                                                   |       | 
  SELECT 1+1 AS "TWO";                                                                            | Result                                                                                                                                                            +|     1 |    1
-                                                                                                 |   Output: $1                                                                                                                                                       |       | 
+                                                                                                 |   Output: $1Query Identifier: -$2                                                                                                                                  |       | 
  SELECT pg_stat_query_plans_reset(                                                              +| Result                                                                                                                                                            +|     1 |    1
          (SELECT r.oid FROM pg_roles AS r WHERE r.rolname = 'regress_stats_user2'),             +|   Output: pg_stat_query_plans_reset($0, $1, $2)                                                                                                                   +|       | 
          (SELECT d.oid FROM pg_database As d where datname = current_database()),               +|   InitPlan $1(returns $0)                                                                                                                                         +|       | 
@@ -837,20 +837,20 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
                                                                                                  |                 Output: pg_stat_query_plans_sql.queryid                                                                                                           +|       | 
                                                                                                  |                 Function Call: pg_stat_query_plans_sql(true)                                                                                                      +|       | 
                                                                                                  |                 Filter: (pg_stat_query_plans_sql.query = $5::text)                                                                                                +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: $6                                                                                                                                               |       | 
  SELECT pg_stat_query_plans_reset();                                                             | Result                                                                                                                                                            +|     1 |    1
                                                                                                  |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, $3::bigint)                                                                                                 +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: -$4                                                                                                                                              |       | 
  SELECT pg_stat_query_plans_reset(NULL);                                                         | Result                                                                                                                                                            +|     1 |    1
                                                                                                  |   Output: NULL::void                                                                                                                                              +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: $1                                                                                                                                               |       | 
  SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY query COLLATE "C"; | Sort                                                                                                                                                              +|     2 |   12
                                                                                                  |   Output: pg_stat_query_plans.query, pg_stat_query_plans.normalized_plan, pg_stat_query_plans.calls, pg_stat_query_plans.rows, ((pg_stat_query_plans.query)::text)+|       | 
                                                                                                  |   Sort Key: pg_stat_query_plans.query COLLATE "C"                                                                                                                 +|       | 
                                                                                                  |   ->  Function Scan on public.pg_stat_query_plans                                                                                                                 +|       | 
                                                                                                  |         Output: pg_stat_query_plans.query, pg_stat_query_plans.normalized_plan, pg_stat_query_plans.calls, pg_stat_query_plans.rows, pg_stat_query_plans.query    +|       | 
                                                                                                  |         Function Call: pg_stat_query_plans(true)                                                                                                                  +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: -$1                                                                                                                                              |       | 
 (7 rows)
 
 --
@@ -868,7 +868,7 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
                                               query                                              |                                                                          normalized_plan                                                                           | calls | rows 
 -------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------+------
  SELECT 1+1 AS "TWO";                                                                            | Result                                                                                                                                                            +|     1 |    1
-                                                                                                 |   Output: $1                                                                                                                                                       |       | 
+                                                                                                 |   Output: $1Query Identifier: -$2                                                                                                                                  |       | 
  SELECT pg_stat_query_plans_reset(                                                              +| Result                                                                                                                                                            +|     1 |    1
          (SELECT r.oid FROM pg_roles AS r WHERE r.rolname = 'regress_stats_user2'),             +|   Output: pg_stat_query_plans_reset($0, $1, $2)                                                                                                                   +|       | 
          (SELECT d.oid FROM pg_database As d where datname = current_database()),               +|   InitPlan $1(returns $0)                                                                                                                                         +|       | 
@@ -886,25 +886,25 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
                                                                                                  |                 Output: pg_stat_query_plans_sql.queryid                                                                                                           +|       | 
                                                                                                  |                 Function Call: pg_stat_query_plans_sql(true)                                                                                                      +|       | 
                                                                                                  |                 Filter: (pg_stat_query_plans_sql.query = $5::text)                                                                                                +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: $6                                                                                                                                               |       | 
  SELECT pg_stat_query_plans_reset();                                                             | Result                                                                                                                                                            +|     1 |    1
                                                                                                  |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, $3::bigint)                                                                                                 +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: -$4                                                                                                                                              |       | 
  SELECT pg_stat_query_plans_reset(0,0,s.queryid)                                                +| Function Scan on public.pg_stat_query_plans_sql                                                                                                                   +|     1 |    2
          FROM pg_stat_query_plans_sql AS s WHERE s.query = 'SELECT $1 AS "ONE"';                 |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, pg_stat_query_plans_sql.queryid)                                                                            +|       | 
                                                                                                  |   Function Call: pg_stat_query_plans_sql(true)                                                                                                                    +|       | 
                                                                                                  |   Filter: (pg_stat_query_plans_sql.query = $3::text)                                                                                                              +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: $4                                                                                                                                               |       | 
  SELECT pg_stat_query_plans_reset(NULL);                                                         | Result                                                                                                                                                            +|     1 |    1
                                                                                                  |   Output: NULL::void                                                                                                                                              +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: $1                                                                                                                                               |       | 
  SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY query COLLATE "C"; | Sort                                                                                                                                                              +|     3 |   19
                                                                                                  |   Output: pg_stat_query_plans.query, pg_stat_query_plans.normalized_plan, pg_stat_query_plans.calls, pg_stat_query_plans.rows, ((pg_stat_query_plans.query)::text)+|       | 
                                                                                                  |   Sort Key: pg_stat_query_plans.query COLLATE "C"                                                                                                                 +|       | 
                                                                                                  |   ->  Function Scan on public.pg_stat_query_plans                                                                                                                 +|       | 
                                                                                                  |         Output: pg_stat_query_plans.query, pg_stat_query_plans.normalized_plan, pg_stat_query_plans.calls, pg_stat_query_plans.rows, pg_stat_query_plans.query    +|       | 
                                                                                                  |         Function Call: pg_stat_query_plans(true)                                                                                                                  +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: -$1                                                                                                                                              |       | 
 (6 rows)
 
 --
@@ -937,29 +937,29 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
                                                                                                  |                 Output: pg_stat_query_plans_sql.queryid                                                                                                           +|       | 
                                                                                                  |                 Function Call: pg_stat_query_plans_sql(true)                                                                                                      +|       | 
                                                                                                  |                 Filter: (pg_stat_query_plans_sql.query = $5::text)                                                                                                +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: $6                                                                                                                                               |       | 
  SELECT pg_stat_query_plans_reset();                                                             | Result                                                                                                                                                            +|     1 |    1
                                                                                                  |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, $3::bigint)                                                                                                 +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: -$4                                                                                                                                              |       | 
  SELECT pg_stat_query_plans_reset(0,0,s.queryid)                                                +| Function Scan on public.pg_stat_query_plans_sql                                                                                                                   +|     1 |    2
          FROM pg_stat_query_plans_sql AS s WHERE s.query = 'SELECT $1 AS "ONE"';                 |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, pg_stat_query_plans_sql.queryid)                                                                            +|       | 
                                                                                                  |   Function Call: pg_stat_query_plans_sql(true)                                                                                                                    +|       | 
                                                                                                  |   Filter: (pg_stat_query_plans_sql.query = $3::text)                                                                                                              +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: $4                                                                                                                                               |       | 
  SELECT pg_stat_query_plans_reset(NULL);                                                         | Result                                                                                                                                                            +|     1 |    1
                                                                                                  |   Output: NULL::void                                                                                                                                              +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: $1                                                                                                                                               |       | 
  SELECT pg_stat_query_plans_reset(r.oid)                                                        +| Seq Scan on pg_catalog.pg_authid                                                                                                                                  +|     1 |    1
                  FROM pg_roles AS r WHERE r.rolname = 'regress_stats_user1';                     |   Output: pg_stat_query_plans_reset(pg_authid.oid, $1::oid, $2::bigint)                                                                                           +|       | 
                                                                                                  |   Filter: (pg_authid.rolname = $3::name)                                                                                                                          +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: $4                                                                                                                                               |       | 
  SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY query COLLATE "C"; | Sort                                                                                                                                                              +|     4 |   25
                                                                                                  |   Output: pg_stat_query_plans.query, pg_stat_query_plans.normalized_plan, pg_stat_query_plans.calls, pg_stat_query_plans.rows, ((pg_stat_query_plans.query)::text)+|       | 
                                                                                                  |   Sort Key: pg_stat_query_plans.query COLLATE "C"                                                                                                                 +|       | 
                                                                                                  |   ->  Function Scan on public.pg_stat_query_plans                                                                                                                 +|       | 
                                                                                                  |         Output: pg_stat_query_plans.query, pg_stat_query_plans.normalized_plan, pg_stat_query_plans.calls, pg_stat_query_plans.rows, pg_stat_query_plans.query    +|       | 
                                                                                                  |         Function Call: pg_stat_query_plans(true)                                                                                                                  +|       | 
-                                                                                                 |                                                                                                                                                                    |       | 
+                                                                                                 | Query Identifier: -$1                                                                                                                                              |       | 
 (6 rows)
 
 --
@@ -976,7 +976,7 @@ SELECT query, normalized_plan, calls, rows FROM pg_stat_query_plans ORDER BY que
 ------------------------------------------+-------------------------------------------------------------------+-------+------
  SELECT pg_stat_query_plans_reset(0,0,0); | Result                                                           +|     1 |    1
                                           |   Output: pg_stat_query_plans_reset($1::oid, $2::oid, $3::bigint)+|       | 
-                                          |                                                                   |       | 
+                                          | Query Identifier: $4                                              |       | 
 (1 row)
 
 --
@@ -1009,7 +1009,7 @@ pg_stat_query_plans WHERE query LIKE '%DELETE%' ORDER BY query COLLATE "C", topl
  DELETE FROM test; | Delete on public.test        +| t        |     1
                    |   ->  Seq Scan on public.test+|          | 
                    |         Output: ctid         +|          | 
-                   |                               |          | 
+                   | Query Identifier: -$1         |          | 
 (1 row)
 
 SET pg_stat_query_plans.track = 'all';
@@ -1026,11 +1026,11 @@ pg_stat_query_plans WHERE query LIKE '%DELETE%' ORDER BY query COLLATE "C", topl
  DELETE FROM test;                                                                     | Delete on public.test                                                                                                                                                 +| f        |     1
                                                                                        |   ->  Seq Scan on public.test                                                                                                                                         +|          | 
                                                                                        |         Output: ctid                                                                                                                                                  +|          | 
-                                                                                       |                                                                                                                                                                        |          | 
+                                                                                       | Query Identifier: -$1                                                                                                                                                  |          | 
  DELETE FROM test;                                                                     | Delete on public.test                                                                                                                                                 +| t        |     2
                                                                                        |   ->  Seq Scan on public.test                                                                                                                                         +|          | 
                                                                                        |         Output: ctid                                                                                                                                                  +|          | 
-                                                                                       |                                                                                                                                                                        |          | 
+                                                                                       | Query Identifier: -$1                                                                                                                                                  |          | 
  SELECT query, normalized_plan, toplevel, calls FROM                                  +| Sort                                                                                                                                                                  +| t        |     1
  pg_stat_query_plans WHERE query LIKE '%DELETE%' ORDER BY query COLLATE "C", toplevel; |   Output: pg_stat_query_plans.query, pg_stat_query_plans.normalized_plan, pg_stat_query_plans.toplevel, pg_stat_query_plans.calls, ((pg_stat_query_plans.query)::text)+|          | 
                                                                                        |   Sort Key: pg_stat_query_plans.query COLLATE "C", pg_stat_query_plans.toplevel                                                                                       +|          | 
@@ -1038,7 +1038,7 @@ pg_stat_query_plans WHERE query LIKE '%DELETE%' ORDER BY query COLLATE "C", topl
                                                                                        |         Output: pg_stat_query_plans.query, pg_stat_query_plans.normalized_plan, pg_stat_query_plans.toplevel, pg_stat_query_plans.calls, pg_stat_query_plans.query    +|          | 
                                                                                        |         Function Call: pg_stat_query_plans(true)                                                                                                                      +|          | 
                                                                                        |         Filter: (pg_stat_query_plans.query ~~ $1::text)                                                                                                               +|          | 
-                                                                                       |                                                                                                                                                                        |          | 
+                                                                                       | Query Identifier: $2                                                                                                                                                   |          | 
 (3 rows)
 
 DROP TABLE IF EXISTS test \;
