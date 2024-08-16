@@ -284,8 +284,13 @@ static void pgqp_update_counters(volatile Counters *counters,
   counters->local_blks_written += bufusage->local_blks_written;
   counters->temp_blks_read += bufusage->temp_blks_read;
   counters->temp_blks_written += bufusage->temp_blks_written;
+#if PG_VERSION_NUM >= 170000
+  counters->blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_read_time);
+  counters->blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->shared_blk_write_time);
+#else
   counters->blk_read_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_read_time);
   counters->blk_write_time += INSTR_TIME_GET_MILLISEC(bufusage->blk_write_time);
+#endif
 #if PG_VERSION_NUM >= 150000
   counters->temp_blk_read_time +=
       INSTR_TIME_GET_MILLISEC(bufusage->temp_blk_read_time);
