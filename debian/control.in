@@ -3,8 +3,16 @@ Section: database
 Priority: optional
 Maintainer: Leonid Borchuk <xifos@yandex-team.ru>
 Standards-Version: 1.0.1
-Build-Depends: debhelper (>=9~), postgresql-server-dev-all (>= 195~),
- postgresql-server-dev-11, postgresql-server-dev-12, postgresql-server-dev-13, postgresql-server-dev-14, postgresql-server-dev-15
+Build-Depends:
+ debhelper (>=9~),
+ postgresql-server-dev-all (>= 195~),
+ postgresql-server-dev-11,
+ postgresql-server-dev-12,
+ postgresql-server-dev-13,
+ postgresql-server-dev-14,
+ postgresql-server-dev-15,
+ postgresql-server-dev-16,
+ postgresql-server-dev-17
 Homepage: https://github.com/postgredients/pg_stat_query_plans
 #Vcs-Git: git://github.com:postgredients/pg_stat_query_plans
 #Vcs-Browser: https://github.com/postgredients/pg_stat_query_plans
@@ -13,9 +21,9 @@ Package: postgresql-PGVERSION-pgqp-ya
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}, postgresql-PGVERSION
 Description: PostgreSQL extension to gather per-query executioon plan statistics.
- Statistics gathered are the same as for original pg_stat_query_plans extension. 
- Difference is data stored per normalized execution plan, not query. Normalized 
+ Statistics gathered are the same as for original pg_stat_query_plans extension.
+ Difference is data stored per normalized execution plan, not query. Normalized
  execution plan is derived from query execution plan after removing all unimportant
- data such as cost and numeric values (quite similar to query normalization in 
+ data such as cost and numeric values (quite similar to query normalization in
  original pg_stat_query_plans). Query texts and plans are stored in memory and by
  default packed by pg_lzcompress.
