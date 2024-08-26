@@ -7,7 +7,6 @@ OBJS = \
 	pg_stat_query_plans_storage.o \
 	pg_stat_query_plans_parser.o
 
-USE_PGXS=1
 EXTENSION = pg_stat_query_plans
 DATA = pg_stat_query_plans--1.0.sql
 PGFILEDESC = "pg_stat_query_plans - execution statistics and plans of SQL statements"

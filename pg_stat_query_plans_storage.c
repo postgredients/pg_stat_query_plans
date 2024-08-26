@@ -245,6 +245,7 @@ static void pgqp_update_counters(volatile Counters *counters,
                                  const void *walusage,
 #endif
                                  const struct JitInstrumentation *jitusage) {
+  Assert(kind > PGQP_INVALID && kind < PGQP_NUMKIND);
   if (IS_STICKY(counters))
     counters->usage = USAGE_INIT;
 
@@ -370,7 +371,7 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
   int64 generation;
 
   Assert(query != NULL);
-  Assert(kind == PGQP_PLAN || kind == PGQP_EXEC);
+  Assert(kind == PGQP_PLAN || kind == PGQP_EXEC || jstate != NULL);
 
   /* Safety check... */
   if (!pgqp || !pgqp_queries || !pgqp_plans || !pgqp_texts) {
