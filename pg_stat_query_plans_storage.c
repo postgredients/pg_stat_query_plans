@@ -71,7 +71,7 @@ char *get_decoded_text(volatile pgqpTextStorageEntry *s) {
 
   Assert(s);
   Assert(s->text_len >= 0);
-  Assert(s->text_offset + s->text_len) < pgqp_storage_memory;
+  Assert(s->text_offset + s->text_len < pgqp_storage_memory);
 
   if (s->text_encoding == PGQP_PLAINTEXT)
     return SHMEM_TEXT_PTR(s->text_offset);
