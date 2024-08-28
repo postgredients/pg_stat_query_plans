@@ -1102,7 +1102,7 @@ StringInfo gen_normplan(char *execution_plan) {
 	{
 	    if (yylloc >= strlen(execution_plan))
 		    break;
-	  /* something got wrong while parsink - for example 9kb string, so mark it for replace and copy old string  */
+	  /* something got wrong while parsing - for example 9kb string, so mark it for replace and copy old string  */
 	  tmp_str = strndup((char *)execution_plan + last_yylloc, yylloc - last_yylloc);
           appendStringInfoString(plan_out, tmp_str);
           free(tmp_str);
