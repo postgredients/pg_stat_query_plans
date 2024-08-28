@@ -85,7 +85,7 @@ START_TEST(test_pgqp_alloc)
 	key.toplevel = true;
 	entry = pgqp_query_alloc(&key, false, 1);
 	ck_assert(entry);
-	ck_assert(entry->counters.usage == USAGE_INIT);
+	ck_assert(entry->counters.usage == PGQP_USAGE_INIT);
 	ck_assert(entry->plans_count == 0);
 	ck_assert(entry->generation == 1);
 	key.queryid = 4;
@@ -107,7 +107,7 @@ START_TEST(test_pgqp_alloc)
 	plan_key.planid = 1;
 	plan_entry = pgqp_plan_alloc(&plan_key, false, 3);
 	ck_assert(plan_entry);
-	ck_assert(plan_entry->counters.usage == USAGE_INIT);
+	ck_assert(plan_entry->counters.usage == PGQP_USAGE_INIT);
 	ck_assert(plan_entry->generation == 3);
 	plan_key.queryid = 2;
 	plan_entry = pgqp_plan_alloc(&plan_key, true, 4);
@@ -218,8 +218,8 @@ END_TEST
 
 START_TEST(test_need_gc)
 {
-	ck_assert(need_gc(false, 0, 0) == false);
-	ck_assert(need_gc(false, 100*1024*1024, 0) == true);
+	ck_assert(pgqp_need_gc(false, 0, 0) == false);
+	ck_assert(pgqp_need_gc(false, 100*1024*1024, 0) == true);
 }
 END_TEST
 

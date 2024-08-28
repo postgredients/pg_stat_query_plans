@@ -201,14 +201,14 @@ Table 3. pg_stat_query_plans_info_ya Columns
 pg_stat_query_plans functions
 -------------------------------
 
-### pg_stat_query_plans_reset_ya(userid Oid, dbid Oid, queryid bigint) returns void
+### pg_stat_query_plans_reset(userid Oid, dbid Oid, queryid bigint) returns void
 
  pg_stat_query_plans_reset_ya discards statistics (statements and execution plans) gathered so far by pg_stat_query_plans corresponding to the specified userid, dbid and queryid. If any of the parameters are not specified, the default value 0 is used for each of them and the statistics that match with other parameters will be reset. If no parameter is specified or all the specified parameters are 0, it will discard all statistics. If all statistics in the pg_stat_query_plans view are discarded, it will also reset the statistics in the pg_stat_query_plans_info view. By default, this function can only be executed by superusers. Access may be granted to others using GRANT.
 
 
-### pg_stat_query_plans_reset_minmax_ya() returns void
+### pg_stat_query_plans_reset_minmax() returns void
 
- Reset for all statements and execution plans statistics min_plan_time, max_plan_time, mean_plan_time, stddev_plan_time, min_exec_time, max_exec_time, ean_exec_time, stddev_exec_time to zero for pg_stat_staments_ya and min_exec_time, max_exec_time, ean_exec_time, stddev_exec_time to zero for pg_stat_staments_plans_ya. Could be usefull for measure planning and execution time deviations between statistics observations. 
+ Reset for all statements and execution plans statistics min_plan_time, max_plan_time, mean_plan_time, stddev_plan_time, min_exec_time, max_exec_time, ean_exec_time, stddev_exec_time to zero for pg_stat_staments_ya and min_exec_time, max_exec_time, ean_exec_time, stddev_exec_time to zero for pg_stat_query_plans. Could be usefull for measure planning and execution time deviations between statistics observations. 
 
 
 ### pg_stat_query_plans(showtext boolean) returns setof record
@@ -447,9 +447,9 @@ The data is stored in several structures:
 2. Hash table of query statistics
 3. Hash table of execution plan statistics
 
-When purge is performed, execution plans are sorted by usage (similar to pg_stat_query_plans). Remove FREE_PERCENT of the least used execution plans. During the deletion process, the reference counts in the query statistics and text storage are reduced. Then remove queries from the hash table with zero reference counts.
+When purge is performed, execution plans are sorted by usage (similar to pg_stat_query_plans). Remove PGQP_FREE_PERCENT of the least used execution plans. During the deletion process, the reference counts in the query statistics and text storage are reduced. Then remove queries from the hash table with zero reference counts.
 
-If the cause of cleanup was text memory area exhaustion, cleanup continues until FREE_PERCENT memory size will be freed.
+If the cause of cleanup was text memory area exhaustion, cleanup continues until PGQP_FREE_PERCENT memory size will be freed.
 
 If, after cleaning, a high watermark in the text storage area does not allow inserting new text, garbage collection is taking place in text storage (texts are moved, links to them are replaced).
 

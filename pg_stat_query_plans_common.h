@@ -11,20 +11,17 @@
  */
 #include "postgres.h"
 
-#ifndef PGSTATSTATEMENSYA_H
-#define PGSTATSTATEMENSYA_H
+#ifndef PGQP_H
+#define PGQP_H
 /* Location of permanent stats file (valid when database is shut down) */
-#define USAGE_EXEC(duration)	(1.0)
-#define USAGE_INIT				(1.0)	/* including initial planning */
-#define ASSUMED_MEDIAN_INIT		(10.0)	/* initial assumed median usage */
-#define ASSUMED_LENGTH_INIT		1024	/* initial assumed mean query length */
-#define USAGE_DECREASE_FACTOR	(0.99)	/* decreased every entry_dealloc */
-#define STICKY_DECREASE_FACTOR	(0.50)	/* factor for sticky entries */
-#define USAGE_DEALLOC_PERCENT	5		/* free this % of entries at once */
-#define FREE_PERCENT			10		/* % of free entries in pgqp_hash after deallocation */
-#define ID_SEEDVALUE		42		/* seed value for calculate planid hash
-value */
-#define IS_STICKY(c)	((c->calls[PGQP_PLAN] + c->calls[PGQP_EXEC]) == 0)
+#define PGQP_USAGE_EXEC(duration)	(1.0)
+#define PGQP_USAGE_INIT			(1.0)	/* including initial planning */
+#define PGQP_ASSUMED_MEDIAN_INIT	(10.0)	/* initial assumed median usage */
+#define PGQP_USAGE_DECREASE_FACTOR	(0.99)	/* decreased every entry_dealloc */
+#define PGQP_STICKY_DECREASE_FACTOR	(0.50)	/* factor for sticky entries */
+#define PGQP_FREE_PERCENT		10		/* % of free entries in pgqp_hash after deallocation */
+#define PGQP_ID_SEEDVALUE		42		/* seed value for calculate planid hash value */
+#define PGQP_IS_STICKY(c)	((c->calls[PGQP_PLAN] + c->calls[PGQP_EXEC]) == 0)
 
 /*
  * Utility statements that pgqp_ProcessUtility and pgqp_post_parse_analyze
@@ -48,7 +45,7 @@ typedef enum pgqpStoreKind
 
 	/*
 	 * PGQP_PLAN and PGQP_EXEC must be respectively 0 and 1 as they're used to
-	 * reference the underlying values in the arrays in the Counters struct,
+	 * reference the underlying values in the arrays in the pgqpCounters struct,
 	 * and this order is required in pg_stat_query_plans_internal().
 	 */
 	PGQP_PLAN = 0,
@@ -81,7 +78,7 @@ typedef struct pgqpPlanHashKey
 /*
  * The actual stats counters kept within pgqpEntry.
  */
-typedef struct Counters
+typedef struct pgqpCounters
 {
 	int64		calls[PGQP_NUMKIND];	/* # of times planned/executed */
 	double		total_time[PGQP_NUMKIND];	/* total planning/execution time,
@@ -125,12 +122,12 @@ typedef struct Counters
 	int64		jit_emission_count; /* number of times emission time has been
 									 * > 0 */
 	double		jit_emission_time;	/* total time to emit jit code */
-} Counters;
+} pgqpCounters;
 
 /*
  * Stats specific for query execution plans
  */
-typedef struct PlanCounters
+typedef struct pgqpPlanCounters
 {
 	Cost 		startup_cost;	/* cost before the first row can be returned */
 	Cost 		total_cost;		/* cost to return all the rows */
@@ -140,7 +137,7 @@ typedef struct PlanCounters
 	double		plan_rows;      /* estimated count of returned rows */
 	#endif
 	int 		plan_width;		/* estimated width of each row */
-} PlanCounters;
+} pgqpPlanCounters;
 
 /*
  * Global statistics for pg_stat_query_plans
@@ -208,7 +205,7 @@ typedef struct pgqpTextStorageEntry
 typedef struct pgqpEntry
 {
 	pgqpQueryHashKey 		key;			/* hash key of entry - MUST BE FIRST */
-	Counters				counters;		/* the statistics for this query */
+	pgqpCounters				counters;		/* the statistics for this query */
 	pgqpTextStorageEntry*	query_text;     /* Stored query text */
 	int64					generation;		/* initialize from pgqpGlobalStats each time
 											   query added, so newer be the same even if item was deallocated*/
@@ -223,8 +220,8 @@ typedef struct pgqpEntry
 typedef struct pgqpPlanEntry
 {
 	pgqpPlanHashKey     	key;            /* hash key of entry - MUST BE FIRST */
-	Counters            	counters;       /* the statistics for this query */
-	PlanCounters			plan_counters;	/* Specific for query plan statistic*/
+	pgqpCounters            counters;       /* the statistics for this query */
+	pgqpPlanCounters	plan_counters;	/* Specific for query plan statistic*/
 	pgqpTextStorageEntry*   query_text;     /* Stored example query plan */
 	pgqpTextStorageEntry*  	example_plan; 	/* Stored example plan item */
 	pgqpTextStorageEntry*   gen_plan;   	/* Stored normalized plan item */
@@ -252,10 +249,10 @@ typedef struct pgqpSharedState
 /* Global variables */
 
 /* Current nesting depth of ExecutorRun+ProcessUtility calls */
-extern int exec_nested_level;
+extern int pgqp_exec_nested_level;
 
 /* Current nesting depth of planner calls */
-extern int plan_nested_level;
+extern int pgqp_plan_nested_level;
 
 /* Links to shared memory state */
 extern pgqpSharedState *pgqp;
@@ -306,15 +303,7 @@ extern bool example_log_triggers;	/* Log trigger trace in EXPLAIN */
 	(pgqp_track == PGQP_TRACK_ALL || \
 	(pgqp_track == PGQP_TRACK_TOP && (level) == 0)))
 
-#define record_gc_qtexts() \
-	do { \
-		volatile pgqpSharedState *s = (volatile pgqpSharedState *) pgqp; \
-		SpinLockAcquire(&s->mutex); \
-		s->gc_count++; \
-		SpinLockRelease(&s->mutex); \
-	} while(0)
-
-#define inc_generation() \
+#define pgqp_inc_generation() \
 	do { \
 		volatile pgqpSharedState *s = (volatile pgqpSharedState *) pgqp; \
 		SpinLockAcquire(&s->mutex); \
