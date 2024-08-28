@@ -220,6 +220,7 @@ void pgqp_remove_text(pgqpTextStorageEntry *entry) {
     if (entry->usage_count == 0) {
       volatile pgqpSharedState *s = (volatile pgqpSharedState *)pgqp;
       /* mark string as empty */
+      Assert(entry->text_offset >=0 && entry->text_offset < pgqp_storage_memory);
       strncpy(SHMEM_TEXT_PTR(entry->text_offset), "", 1);
       /* remove item from hash table */
       hash_search(pgqp_texts, &entry->text_key, HASH_REMOVE, NULL);
