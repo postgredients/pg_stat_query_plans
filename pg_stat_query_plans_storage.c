@@ -775,6 +775,7 @@ void pgqp_gc_storage(void) {
   instr_time duration;
   volatile pgqpSharedState *s = (volatile pgqpSharedState *)pgqp;
 
+  Assert(s);
   /* copy variables while holding lock */
   SpinLockAcquire(&s->mutex);
   storage_offset = s->storage_offset;
@@ -817,6 +818,7 @@ void pgqp_gc_storage(void) {
   for (i = 0; i < items_count; i++) {
     Assert(entries[i]->text_offset >= current_offset);
     if (entries[i]->text_offset > current_offset) {
+      Assert(current_offset + entries[i]->text_len < pgqp_storage_memory);
       memmove(SHMEM_TEXT_PTR(current_offset),
               SHMEM_TEXT_PTR(entries[i]->text_offset), entries[i]->text_len);
       entries[i]->text_offset = current_offset;
@@ -844,7 +846,7 @@ void pgqp_gc_storage(void) {
 bool pgqp_need_gc(bool already_started, int64 queries_size, int64 plans_size) {
   int64 free_entries = 1;
   int64 free_entries_plan = 1;
-  int64 smemory = pgqp_max_query_len + pgqp_max_plan_len;
+  int64 smemory = pgqp_max_query_len + 2 * pgqp_max_plan_len;
 
   if (already_started) {
     free_entries = Max(1, pgqp_max * PGQP_FREE_PERCENT / 100);
@@ -904,6 +906,8 @@ void pgqp_dealloc(void) {
   volatile pgqpSharedState *s = (volatile pgqpSharedState *)pgqp;
 
   /* Check if dealloc needed */
+
+  Assert(s);
 
   if (!pgqp_need_gc(false, s->stats.queries_size, s->stats.plans_size))
     return;
