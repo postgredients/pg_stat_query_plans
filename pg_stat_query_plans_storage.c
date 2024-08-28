@@ -251,6 +251,8 @@ static void pgqp_update_counters(volatile pgqpCounters *counters,
 #endif
                                  const struct JitInstrumentation *jitusage) {
   Assert(kind > PGQP_INVALID && kind < PGQP_NUMKIND);
+  Assert(counters);
+  Assert(bufusage);
   if (PGQP_IS_STICKY(counters))
     counters->usage = PGQP_USAGE_INIT;
 
@@ -305,6 +307,7 @@ static void pgqp_update_counters(volatile pgqpCounters *counters,
 #endif
   counters->usage += PGQP_USAGE_EXEC(total_time);
 #if PG_VERSION_NUM >= 130000
+  Assert(walusage);
   counters->wal_records += walusage->wal_records;
   counters->wal_fpi += walusage->wal_fpi;
   counters->wal_bytes += walusage->wal_bytes;
@@ -496,6 +499,7 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
       SpinLockRelease(&s->mutex);
     }
     entry = pgqp_query_alloc(&key, jstate != NULL, generation);
+    Assert(entry);
     pgqp_inc_generation();
     entry->query_text = pgqp_store_text(norm_query, PGQP_SQLTEXT, queryId, 0);
     /* Not need exclusive lock for a while - switch to shared  */
@@ -511,6 +515,8 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
   if (execution_plan) {
     int64 planId;
     Assert(qd);
+    Assert(execution_plan->data);
+    Assert(execution_plan->len >= 0);
 
     planId = hash_any_extended((const unsigned char *)execution_plan->data,
                                execution_plan->len, PGQP_ID_SEEDVALUE);
@@ -867,7 +873,7 @@ bool pgqp_need_gc(bool already_started, int64 queries_size, int64 plans_size) {
  */
 static bool pgqp_need_gc_stat(int64 queries_size) {
   int64 free_entries = Max(1, pgqp_max * PGQP_FREE_PERCENT / 100);
-  int64 smemory = pgqp_max_query_len + pgqp_max_plan_len;
+  int64 smemory = pgqp_max_query_len + 2 * pgqp_max_plan_len;
 
   smemory = Max(smemory, pgqp_storage_memory / 100 * PGQP_FREE_PERCENT);
 
