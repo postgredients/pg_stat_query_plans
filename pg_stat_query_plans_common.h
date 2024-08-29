@@ -31,6 +31,7 @@
 									!IsA(n, PrepareStmt) && \
 									!IsA(n, DeallocateStmt))
 
+
 /*
  * Extension version number, for supporting older extension versions' objects
  */

@@ -19,6 +19,7 @@
 #endif
 
 #include "pg_stat_query_plans_parser.h"
+#include "pg_stat_query_plans_assert.h"
 
 #if PG_VERSION_NUM < 140000
 
@@ -76,8 +77,8 @@ void pgqpAppendJumble(pgqpJumbleState *jstate, const unsigned char *item,
  * of information).
  */
 void pgqpJumbleQuery(pgqpJumbleState *jstate, Query *query) {
-  Assert(IsA(query, Query));
-  Assert(query->utilityStmt == NULL);
+  pgqpAssert(IsA(query, Query));
+  pgqpAssert(query->utilityStmt == NULL);
 
   PGQP_APP_JUMB(query->commandType);
   /* resultRelation is usually predictable from commandType */
@@ -657,7 +658,7 @@ char *pgqp_gen_normquery(pgqpJumbleState *jstate, const char *query, int query_l
     len_to_wrt = off - last_off;
     len_to_wrt -= last_tok_len;
 
-    Assert(len_to_wrt >= 0);
+    pgqpAssert(len_to_wrt >= 0);
     memcpy(norm_query + n_quer_loc, query + quer_loc, len_to_wrt);
     n_quer_loc += len_to_wrt;
 
@@ -676,11 +677,11 @@ char *pgqp_gen_normquery(pgqpJumbleState *jstate, const char *query, int query_l
    */
   len_to_wrt = query_len - quer_loc;
 
-  Assert(len_to_wrt >= 0);
+  pgqpAssert(len_to_wrt >= 0);
   memcpy(norm_query + n_quer_loc, query + quer_loc, len_to_wrt);
   n_quer_loc += len_to_wrt;
 
-  Assert(n_quer_loc <= norm_query_buflen);
+  pgqpAssert(n_quer_loc <= norm_query_buflen);
   norm_query[n_quer_loc] = '\0';
 
   *query_len_p = n_quer_loc;
@@ -753,7 +754,7 @@ void pgqp_fill_in_constant_lengths(pgqpJumbleState *jstate, const char *query,
     /* Adjust recorded location if we're dealing with partial string */
     loc -= query_loc;
 
-    Assert(loc >= 0);
+    pgqpAssert(loc >= 0);
 
     if (loc <= last_loc)
       continue; /* Duplicate constant, ignore */
@@ -870,7 +871,7 @@ char *pgqp_gen_normquery(JumbleState *jstate, const char *query, int query_loc,
     len_to_wrt = off - last_off;
     len_to_wrt -= last_tok_len;
 
-    Assert(len_to_wrt >= 0);
+    pgqpAssert(len_to_wrt >= 0);
     memcpy(norm_query + n_quer_loc, query + quer_loc, len_to_wrt);
     n_quer_loc += len_to_wrt;
 
@@ -889,11 +890,11 @@ char *pgqp_gen_normquery(JumbleState *jstate, const char *query, int query_loc,
    */
   len_to_wrt = query_len - quer_loc;
 
-  Assert(len_to_wrt >= 0);
+  pgqpAssert(len_to_wrt >= 0);
   memcpy(norm_query + n_quer_loc, query + quer_loc, len_to_wrt);
   n_quer_loc += len_to_wrt;
 
-  Assert(n_quer_loc <= norm_query_buflen);
+  pgqpAssert(n_quer_loc <= norm_query_buflen);
   norm_query[n_quer_loc] = '\0';
 
   *query_len_p = n_quer_loc;
@@ -960,7 +961,7 @@ void pgqp_fill_in_constant_lengths(JumbleState *jstate, const char *query,
     /* Adjust recorded location if we're dealing with partial string */
     loc -= query_loc;
 
-    Assert(loc >= 0);
+    pgqpAssert(loc >= 0);
 
     if (loc <= last_loc)
       continue; /* Duplicate constant, ignore */

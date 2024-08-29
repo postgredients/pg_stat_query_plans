@@ -74,6 +74,7 @@
 #include "pg_stat_query_plans_common.h"
 #include "pg_stat_query_plans_parser.h"
 #include "pg_stat_query_plans_storage.h"
+#include "pg_stat_query_plans_assert.h"
 #include "utils/errcodes.h"
 #include "utils/memutils.h"
 #include "utils/timestamp.h"
@@ -1311,7 +1312,7 @@ static void pg_stat_query_plans_plan_internal(FunctionCallInfo fcinfo,
 
     values[i++] = Int64GetDatumFast(entry->generation);
 
-    Assert(i == (api_version == PGQP_V1_0
+    pgqpAssert(i == (api_version == PGQP_V1_0
                      ? PG_STAT_QUERY_PLANS_PLAN_COLS_V1_0
                      : -1 /* fail if you forget to update this assert */));
 
@@ -1468,7 +1469,7 @@ static void pg_stat_query_plans_stat_internal(FunctionCallInfo fcinfo,
 
     values[i++] = Int64GetDatumFast(entry->generation);
 
-    Assert(i == (api_version == PGQP_V1_0
+    pgqpAssert(i == (api_version == PGQP_V1_0
                      ? PG_STAT_QUERY_PLANS_SQL_COLS_V1_0
                      : -1 /* fail if you forget to update this assert */));
 

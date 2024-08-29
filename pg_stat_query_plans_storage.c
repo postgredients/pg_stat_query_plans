@@ -42,6 +42,7 @@
 #include "pg_stat_query_plans_common.h"
 #include "pg_stat_query_plans_parser.h"
 #include "pg_stat_query_plans_storage.h"
+#include "pg_stat_query_plans_assert.h"
 
 static int	lock_iteration_count = 10;
 static int	lock_backoff_timeout = 100;
@@ -69,9 +70,9 @@ char *get_decoded_text(volatile pgqpTextStorageEntry *s) {
   char *fail_dec_str = "failed to decompress";
   int dlen;
 
-  Assert(s);
-  Assert(s->text_len >= 0);
-  Assert(s->text_offset + s->text_len < pgqp_storage_memory);
+  pgqpAssert(s);
+  pgqpAssert(s->text_len >= 0);
+  pgqpAssert(s->text_offset + s->text_len < pgqp_storage_memory);
 
   if (s->text_encoding == PGQP_PLAINTEXT)
     return SHMEM_TEXT_PTR(s->text_offset);
@@ -109,7 +110,7 @@ pgqpTextStorageEntry *pgqp_store_text(const char *data, pgqpTextsKind kind,
   pgqpTextStorageKey key;
   pgqpTextStorageEntry *entry;
 
-  Assert(data);
+  pgqpAssert(data);
 
   if (!pgqp || !pgqp_texts || !pgqp_storage)
     return NULL;
@@ -135,7 +136,7 @@ pgqpTextStorageEntry *pgqp_store_text(const char *data, pgqpTextsKind kind,
     volatile pgqpSharedState *s = (volatile pgqpSharedState *)pgqp;
     pgqpTextsEnc needed_encoding = pgqp_encoding;
 
-    Assert(s->storage_offset < pgqp_storage_memory);
+    pgqpAssert(s->storage_offset < pgqp_storage_memory);
 
     if (kind == PGQP_SQLTEXT)
       max_size = pgqp_max_query_len;
@@ -156,7 +157,7 @@ pgqpTextStorageEntry *pgqp_store_text(const char *data, pgqpTextsKind kind,
         needed_encoding = PGQP_PLAINTEXT;
       } else if (len > 0) {
         entry->text_len = len;
-        Assert(s->storage_offset + entry->text_len < pgqp_storage_memory);
+        pgqpAssert(s->storage_offset + entry->text_len < pgqp_storage_memory);
         memcpy(SHMEM_TEXT_PTR(s->storage_offset), compressed_dst, len);
         entry->text_encoding = PGQP_PGLZ;
       } else {
@@ -169,7 +170,7 @@ pgqpTextStorageEntry *pgqp_store_text(const char *data, pgqpTextsKind kind,
       if (strlen(data) + 1 <= max_size) {
         /* store text len */
         entry->text_len = strlen(data) + 1;
-        Assert(s->storage_offset + entry->text_len < pgqp_storage_memory);
+        pgqpAssert(s->storage_offset + entry->text_len < pgqp_storage_memory);
         /* copy data to storage*/
         strcpy(SHMEM_TEXT_PTR(s->storage_offset), data);
       } else {
@@ -177,10 +178,10 @@ pgqpTextStorageEntry *pgqp_store_text(const char *data, pgqpTextsKind kind,
         int comment_len =
             asprintf(&additional_comment, "<deleted tail %li symbols>",
                      strlen(data) + 1 - max_size);
-        Assert(comment_len > 0);
+        pgqpAssert(comment_len > 0);
         /* store text len */
         entry->text_len = max_size + comment_len + 1;
-        Assert(s->storage_offset + entry->text_len < pgqp_storage_memory);
+        pgqpAssert(s->storage_offset + entry->text_len < pgqp_storage_memory);
         /* copy data to storage*/
         strncpy(SHMEM_TEXT_PTR(s->storage_offset), data, max_size);
         strncpy(SHMEM_TEXT_PTR(s->storage_offset + max_size),
@@ -216,11 +217,11 @@ void pgqp_remove_text(pgqpTextStorageEntry *entry) {
 
   if (entry) {
     entry->usage_count--;
-    Assert(entry->usage_count >= 0);
+    pgqpAssert(entry->usage_count >= 0);
     if (entry->usage_count == 0) {
       volatile pgqpSharedState *s = (volatile pgqpSharedState *)pgqp;
       /* mark string as empty */
-      Assert(entry->text_offset >=0 && entry->text_offset < pgqp_storage_memory);
+      pgqpAssert(entry->text_offset >=0 && entry->text_offset < pgqp_storage_memory);
       strncpy(SHMEM_TEXT_PTR(entry->text_offset), "", 1);
       /* remove item from hash table */
       hash_search(pgqp_texts, &entry->text_key, HASH_REMOVE, NULL);
@@ -250,9 +251,9 @@ static void pgqp_update_counters(volatile pgqpCounters *counters,
                                  const void *walusage,
 #endif
                                  const struct JitInstrumentation *jitusage) {
-  Assert(kind > PGQP_INVALID && kind < PGQP_NUMKIND);
-  Assert(counters);
-  Assert(bufusage);
+  pgqpAssert(kind > PGQP_INVALID && kind < PGQP_NUMKIND);
+  pgqpAssert(counters);
+  pgqpAssert(bufusage);
   if (PGQP_IS_STICKY(counters))
     counters->usage = PGQP_USAGE_INIT;
 
@@ -307,7 +308,7 @@ static void pgqp_update_counters(volatile pgqpCounters *counters,
 #endif
   counters->usage += PGQP_USAGE_EXEC(total_time);
 #if PG_VERSION_NUM >= 130000
-  Assert(walusage);
+  pgqpAssert(walusage);
   counters->wal_records += walusage->wal_records;
   counters->wal_fpi += walusage->wal_fpi;
   counters->wal_bytes += walusage->wal_bytes;
@@ -378,8 +379,8 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
   pgqpPlanEntry *plan_entry = NULL;
   int64 generation;
 
-  Assert(query != NULL);
-  Assert(kind == PGQP_PLAN || kind == PGQP_EXEC || jstate != NULL);
+  pgqpAssert(query != NULL);
+  pgqpAssert(kind == PGQP_PLAN || kind == PGQP_EXEC || jstate != NULL);
 
   /* Safety check... */
   if (!pgqp || !pgqp_queries || !pgqp_plans || !pgqp_texts) {
@@ -403,13 +404,13 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
   query = CleanQuerytext(query, &query_location, &query_len);
 #else
   if (query_location >= 0) {
-    Assert(query_location <= strlen(query));
+    pgqpAssert(query_location <= strlen(query));
     query += query_location;
     /* Length of 0 (or -1) means "rest of string" */
     if (query_len <= 0)
       query_len = strlen(query);
     else
-      Assert(query_len <= strlen(query));
+      pgqpAssert(query_len <= strlen(query));
   } else {
     /* If query location is unknown, distrust query_len as well */
     query_location = 0;
@@ -499,7 +500,7 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
       SpinLockRelease(&s->mutex);
     }
     entry = pgqp_query_alloc(&key, jstate != NULL, generation);
-    Assert(entry);
+    pgqpAssert(entry);
     pgqp_inc_generation();
     entry->query_text = pgqp_store_text(norm_query, PGQP_SQLTEXT, queryId, 0);
     /* Not need exclusive lock for a while - switch to shared  */
@@ -514,9 +515,9 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
 
   if (execution_plan) {
     int64 planId;
-    Assert(qd);
-    Assert(execution_plan->data);
-    Assert(execution_plan->len >= 0);
+    pgqpAssert(qd);
+    pgqpAssert(execution_plan->data);
+    pgqpAssert(execution_plan->len >= 0);
 
     planId = hash_any_extended((const unsigned char *)execution_plan->data,
                                execution_plan->len, PGQP_ID_SEEDVALUE);
@@ -775,7 +776,7 @@ void pgqp_gc_storage(void) {
   instr_time duration;
   volatile pgqpSharedState *s = (volatile pgqpSharedState *)pgqp;
 
-  Assert(s);
+  pgqpAssert(s);
   /* copy variables while holding lock */
   SpinLockAcquire(&s->mutex);
   storage_offset = s->storage_offset;
@@ -816,16 +817,16 @@ void pgqp_gc_storage(void) {
   /* now shift data */
   current_offset = 0;
   for (i = 0; i < items_count; i++) {
-    Assert(entries[i]->text_offset >= current_offset);
+    pgqpAssert(entries[i]->text_offset >= current_offset);
     if (entries[i]->text_offset > current_offset) {
-      Assert(current_offset + entries[i]->text_len < pgqp_storage_memory);
+      pgqpAssert(current_offset + entries[i]->text_len < pgqp_storage_memory);
       memmove(SHMEM_TEXT_PTR(current_offset),
               SHMEM_TEXT_PTR(entries[i]->text_offset), entries[i]->text_len);
       entries[i]->text_offset = current_offset;
     }
     current_offset += entries[i]->text_len;
   }
-  Assert(current_offset <= storage_offset);
+  pgqpAssert(current_offset <= storage_offset);
   /* set storage_offset to the last position */
   s->storage_offset = current_offset;
   s->gc_count++;
@@ -907,7 +908,7 @@ void pgqp_dealloc(void) {
 
   /* Check if dealloc needed */
 
-  Assert(s);
+  pgqpAssert(s);
 
   if (!pgqp_need_gc(false, s->stats.queries_size, s->stats.plans_size))
     return;
@@ -955,7 +956,7 @@ void pgqp_dealloc(void) {
     for (i = 0; i < item_count; i++) {
       /* remove entry from pgqp_plans*/
       entry = hash_search(pgqp_plans, &entries[i]->key, HASH_REMOVE, NULL);
-      Assert(entry);
+      pgqpAssert(entry);
       /* remove link to query text */
       pgqp_remove_text(entry->query_text);
       /* remove link to query plans */
@@ -984,7 +985,7 @@ void pgqp_dealloc(void) {
             pgqp_need_gc_stat(s->stats.queries_size)) {
           query_entry = (pgqpEntry *)hash_search(
               pgqp_queries, &query_entry->key, HASH_REMOVE, NULL);
-          Assert(query_entry);
+          pgqpAssert(query_entry);
           /* remove link to query text */
           pgqp_remove_text(query_entry->query_text);
           /* increase statistics about query remove */
@@ -1023,7 +1024,7 @@ void pgqp_dealloc(void) {
         /* remove entry from pgqp_queries*/
         query_entry = hash_search(pgqp_queries, &query_entries[i]->key,
                                   HASH_REMOVE, NULL);
-        Assert(query_entry);
+        pgqpAssert(query_entry);
         /* remove link to query text */
         pgqp_remove_text(query_entry->query_text);
         /* increase statistics about query remove */
