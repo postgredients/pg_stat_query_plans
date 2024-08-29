@@ -74,6 +74,7 @@
 #include "pg_stat_query_plans_common.h"
 #include "pg_stat_query_plans_parser.h"
 #include "pg_stat_query_plans_storage.h"
+#include "pg_stat_query_plans_assert.h"
 #include "utils/errcodes.h"
 #include "utils/memutils.h"
 #include "utils/timestamp.h"
@@ -89,10 +90,10 @@ PG_FUNCTION_INFO_V1(pg_stat_query_plans_info);
 /*---- Global variables ----*/
 
 /* Current nesting depth of ExecutorRun+ProcessUtility calls */
-int exec_nested_level = 0;
+int pgqp_exec_nested_level = 0;
 
 /* Current nesting depth of planner calls */
-int plan_nested_level = 0;
+int pgqp_plan_nested_level = 0;
 
 const struct config_enum_entry track_options[] = {
     {"none", PGQP_TRACK_NONE, false},
@@ -196,7 +197,7 @@ static void pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 );
 #endif
 
-static int pgqp_add_counters_data(Counters *c, Datum values[0],
+static int pgqp_add_counters_data(pgqpCounters *c, Datum values[0],
                                   pgqpStoreKind start_kind);
 
 static void pg_stat_query_plans_stat_internal(FunctionCallInfo fcinfo,
@@ -409,7 +410,7 @@ static void pgqp_shmem_startup(void) {
     // pgqp->memory_lock =
     // &(GetNamedLWLockTranche("pg_stat_query_plans_memory"))->lock;
     pgqp->storage_offset = 0;
-    pgqp->cur_median_usage = ASSUMED_MEDIAN_INIT;
+    pgqp->cur_median_usage = PGQP_ASSUMED_MEDIAN_INIT;
     SpinLockInit(&pgqp->mutex);
     pgqp->stats.dealloc = 0;
     pgqp->stats.queries_wiped_out = 0;
@@ -477,7 +478,7 @@ pgqp_post_parse_analyze(ParseState *pstate, Query *query)
 
   /* Safety check... */
   if (!pgqp || !pgqp_queries || !pgqp_plans || !pgqp_texts ||
-      !pgqp_enabled(exec_nested_level))
+      !pgqp_enabled(pgqp_exec_nested_level))
     return;
 
 #if PG_VERSION_NUM < 140000
@@ -507,7 +508,7 @@ pgqp_post_parse_analyze(ParseState *pstate, Query *query)
   jstate.highest_extern_param_id = 0;
 
   /* Compute query ID and mark the Query node with it */
-  JumbleQuery(&jstate, query);
+  pgqpJumbleQuery(&jstate, query);
   query->queryId =
       DatumGetUInt64(hash_any_extended(jstate.jumble, jstate.jumble_len, 0));
 
@@ -563,7 +564,7 @@ static PlannedStmt *pgqp_planner(Query *parse, const char *query_string,
    * So testing the planner nesting level only is not enough to detect real
    * top level planner call.
    */
-  if (pgqp_enabled(plan_nested_level + exec_nested_level) &&
+  if (pgqp_enabled(pgqp_plan_nested_level + pgqp_exec_nested_level) &&
       pgqp_track_planning && query_string && parse->queryId != UINT64CONST(0)) {
     instr_time start;
     instr_time duration;
@@ -580,7 +581,7 @@ static PlannedStmt *pgqp_planner(Query *parse, const char *query_string,
     walusage_start = pgWalUsage;
     INSTR_TIME_SET_CURRENT(start);
 
-    plan_nested_level++;
+    pgqp_plan_nested_level++;
     PG_TRY();
     {
       if (prev_planner_hook)
@@ -591,7 +592,7 @@ static PlannedStmt *pgqp_planner(Query *parse, const char *query_string,
             standard_planner(parse, query_string, cursorOptions, boundParams);
     }
     PG_FINALLY();
-    { plan_nested_level--; }
+    { pgqp_plan_nested_level--; }
     PG_END_TRY();
 
     INSTR_TIME_SET_CURRENT(duration);
@@ -635,7 +636,7 @@ static void pgqp_ExecutorStart(QueryDesc *queryDesc, int eflags) {
    * counting of optimizable statements that are directly contained in
    * utility statements.
    */
-  if (pgqp_enabled(exec_nested_level) &&
+  if (pgqp_enabled(pgqp_exec_nested_level) &&
       queryDesc->plannedstmt->queryId != UINT64CONST(0)) {
     /*
      * Set up to track total elapsed time in ExecutorRun.  Make sure the
@@ -661,7 +662,7 @@ static void pgqp_ExecutorStart(QueryDesc *queryDesc, int eflags) {
  */
 static void pgqp_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction,
                              uint64 count, bool execute_once) {
-  exec_nested_level++;
+  pgqp_exec_nested_level++;
   PG_TRY();
   {
     if (prev_ExecutorRun)
@@ -672,12 +673,12 @@ static void pgqp_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction,
 #if PG_VERSION_NUM < 130000
   PG_CATCH();
   {
-    exec_nested_level--;
+    pgqp_exec_nested_level--;
     PG_RE_THROW();
   }
 #else
   PG_FINALLY();
-  { exec_nested_level--; }
+  { pgqp_exec_nested_level--; }
 #endif
   PG_END_TRY();
 }
@@ -686,7 +687,7 @@ static void pgqp_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction,
  * ExecutorFinish hook: all we need do is track nesting depth
  */
 static void pgqp_ExecutorFinish(QueryDesc *queryDesc) {
-  exec_nested_level++;
+  pgqp_exec_nested_level++;
   PG_TRY();
   {
     if (prev_ExecutorFinish)
@@ -697,12 +698,12 @@ static void pgqp_ExecutorFinish(QueryDesc *queryDesc) {
 #if PG_VERSION_NUM < 130000
   PG_CATCH();
   {
-    exec_nested_level--;
+    pgqp_exec_nested_level--;
     PG_RE_THROW();
   }
 #else
   PG_FINALLY();
-  { exec_nested_level--; }
+  { pgqp_exec_nested_level--; }
 #endif
   PG_END_TRY();
 }
@@ -718,7 +719,7 @@ static void pgqp_ExecutorEnd(QueryDesc *queryDesc) {
   MemoryContext oldctx;
 
   if (queryId != UINT64CONST(0) && queryDesc->totaltime &&
-      pgqp_enabled(exec_nested_level)) {
+      pgqp_enabled(pgqp_exec_nested_level)) {
     /*
      * Make sure stats accumulation is done.  (Note: it's okay if several
      * levels of hook all do this.)
@@ -817,7 +818,7 @@ static void pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
    * that user configured another extension to handle utility statements
    * only.
    */
-  if (pgqp_enabled(exec_nested_level) && pgqp_track_utility)
+  if (pgqp_enabled(pgqp_exec_nested_level) && pgqp_track_utility)
     pstmt->queryId = UINT64CONST(0);
 
   /*
@@ -834,7 +835,7 @@ static void pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
    *
    * Likewise, we don't track execution of DEALLOCATE.
    */
-  if (pgqp_track_utility && pgqp_enabled(exec_nested_level) &&
+  if (pgqp_track_utility && pgqp_enabled(pgqp_exec_nested_level) &&
       PGQP_HANDLED_UTILITY(parsetree)) {
     instr_time start;
     instr_time duration;
@@ -846,7 +847,7 @@ static void pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
     walusage_start = pgWalUsage;
     INSTR_TIME_SET_CURRENT(start);
 
-    exec_nested_level++;
+    pgqp_exec_nested_level++;
     PG_TRY();
     {
       if (prev_ProcessUtility)
@@ -857,7 +858,7 @@ static void pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
                                 params, queryEnv, dest, qc);
     }
     PG_FINALLY();
-    { exec_nested_level--; }
+    { pgqp_exec_nested_level--; }
     PG_END_TRY();
 
     INSTR_TIME_SET_CURRENT(duration);
@@ -925,7 +926,7 @@ static void pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
    *
    * Likewise, we don't track execution of DEALLOCATE.
    */
-  if (pgqp_track_utility && pgqp_enabled(exec_nested_level) &&
+  if (pgqp_track_utility && pgqp_enabled(pgqp_exec_nested_level) &&
       !IsA(parsetree, ExecuteStmt) && !IsA(parsetree, PrepareStmt) &&
       !IsA(parsetree, DeallocateStmt)) {
     instr_time start;
@@ -941,7 +942,7 @@ static void pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
     walusage_start = pgWalUsage;
 #endif
     INSTR_TIME_SET_CURRENT(start);
-    exec_nested_level++;
+    pgqp_exec_nested_level++;
     PG_TRY();
     {
       if (prev_ProcessUtility)
@@ -954,12 +955,12 @@ static void pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 #if PG_VERSION_NUM < 130000
     PG_CATCH();
     {
-      exec_nested_level--;
+      pgqp_exec_nested_level--;
       PG_RE_THROW();
     }
 #else
     PG_FINALLY();
-    { exec_nested_level--; }
+    { pgqp_exec_nested_level--; }
 #endif
     PG_END_TRY();
 
@@ -1105,7 +1106,7 @@ Datum pg_stat_query_plans_reset_minmax(PG_FUNCTION_ARGS) {
 #define PG_STAT_QUERY_PLANS_PLAN_COLS_V1_0 45
 #define PG_STAT_QUERY_PLANS_PLAN_COLS 45 /* maximum of above */
 
-static int pgqp_add_counters_data(Counters *c, Datum values[0],
+static int pgqp_add_counters_data(pgqpCounters *c, Datum values[0],
                                   pgqpStoreKind start_kind) {
   int i = 0;
   double stddev;
@@ -1244,8 +1245,8 @@ static void pg_stat_query_plans_plan_internal(FunctionCallInfo fcinfo,
     Datum values[PG_STAT_QUERY_PLANS_PLAN_COLS];
     bool nulls[PG_STAT_QUERY_PLANS_PLAN_COLS];
     int i = 0;
-    Counters tmp;
-    PlanCounters tmp_plan;
+    pgqpCounters tmp;
+    pgqpPlanCounters tmp_plan;
     char *tmp_str;
     volatile pgqpTextStorageEntry *s_query =
         (volatile pgqpTextStorageEntry *)entry->query_text;
@@ -1311,7 +1312,7 @@ static void pg_stat_query_plans_plan_internal(FunctionCallInfo fcinfo,
 
     values[i++] = Int64GetDatumFast(entry->generation);
 
-    Assert(i == (api_version == PGQP_V1_0
+    pgqpAssert(i == (api_version == PGQP_V1_0
                      ? PG_STAT_QUERY_PLANS_PLAN_COLS_V1_0
                      : -1 /* fail if you forget to update this assert */));
 
@@ -1420,8 +1421,8 @@ static void pg_stat_query_plans_stat_internal(FunctionCallInfo fcinfo,
     Datum values[PG_STAT_QUERY_PLANS_SQL_COLS];
     bool nulls[PG_STAT_QUERY_PLANS_SQL_COLS];
     int i = 0;
-    Counters tmp;
-    Counters *tmpp;
+    pgqpCounters tmp;
+    pgqpCounters *tmpp;
     volatile pgqpTextStorageEntry *s =
         (volatile pgqpTextStorageEntry *)entry->query_text;
 
@@ -1460,7 +1461,7 @@ static void pg_stat_query_plans_stat_internal(FunctionCallInfo fcinfo,
 
     /* Skip entry if unexecuted (ie, it's a pending "sticky" entry) */
     tmpp = &tmp;
-    if (IS_STICKY(tmpp)) {
+    if (PGQP_IS_STICKY(tmpp)) {
       continue;
     }
 
@@ -1468,7 +1469,7 @@ static void pg_stat_query_plans_stat_internal(FunctionCallInfo fcinfo,
 
     values[i++] = Int64GetDatumFast(entry->generation);
 
-    Assert(i == (api_version == PGQP_V1_0
+    pgqpAssert(i == (api_version == PGQP_V1_0
                      ? PG_STAT_QUERY_PLANS_SQL_COLS_V1_0
                      : -1 /* fail if you forget to update this assert */));
 

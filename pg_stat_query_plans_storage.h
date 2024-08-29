@@ -35,7 +35,7 @@ void pgqp_entry_reset(Oid userid, Oid dbid, uint64 queryid);
 
 /* methods not used anywhere except unit testing */
 
-bool need_gc(bool already_started, int64 queries_size, int64 plans_size);
+bool pgqp_need_gc(bool already_started, int64 queries_size, int64 plans_size);
 
 void pgqp_dealloc(void);
 

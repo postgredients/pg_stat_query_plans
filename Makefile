@@ -11,10 +11,11 @@ EXTENSION = pg_stat_query_plans
 DATA = pg_stat_query_plans--1.0.sql
 PGFILEDESC = "pg_stat_query_plans - execution statistics and plans of SQL statements"
 
-# LDFLAGS_SL += $(filter -lm, $(LIBS))
 ifneq ($(shell uname), SunOS)
 LDFLAGS+=-Wl,--build-id
 endif
+
+PG_CPPFLAGS = -DPGQP_ASSERT_CHECKING
 
 REGRESS_OPTS = --temp-config $(top_srcdir)/contrib/pg_stat_query_plans/pg_stat_query_plans.conf
 REGRESS = pg_stat_query_plans_sql pg_stat_query_plans

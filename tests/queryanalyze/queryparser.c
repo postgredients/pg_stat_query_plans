@@ -676,7 +676,7 @@ int main(int argc, char **argv)
 	lSize = ftell( fp );
 	rewind( fp );
 
-	Assert(lSize < BUFSIZE);
+	pgqpAssert(lSize < BUFSIZE);
 
 	if (fread( line , lSize, 1 , fp) == 0)
 		return 1;

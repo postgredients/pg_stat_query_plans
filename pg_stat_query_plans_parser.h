@@ -38,27 +38,27 @@ typedef struct pgqpJumbleState
 	int                     highest_extern_param_id;
 } pgqpJumbleState;
 
-void AppendJumble(pgqpJumbleState *jstate,
+void pgqpAppendJumble(pgqpJumbleState *jstate,
 						 const unsigned char *item, Size size);
-void JumbleQuery(pgqpJumbleState *jstate, Query *query);
-void JumbleRangeTable(pgqpJumbleState *jstate, List *rtable);
-void JumbleRowMarks(pgqpJumbleState *jstate, List *rowMarks);
-void JumbleExpr(pgqpJumbleState *jstate, Node *node);
-void RecordConstLocation(pgqpJumbleState *jstate, int location);
-char *gen_normquery(pgqpJumbleState *jstate, const char *query,
+void pgqpJumbleQuery(pgqpJumbleState *jstate, Query *query);
+void pgqpJumbleRangeTable(pgqpJumbleState *jstate, List *rtable);
+void pgqpJumbleRowMarks(pgqpJumbleState *jstate, List *rowMarks);
+void pgqpJumbleExpr(pgqpJumbleState *jstate, Node *node);
+void pgqpRecordConstLocation(pgqpJumbleState *jstate, int location);
+char *pgqp_gen_normquery(pgqpJumbleState *jstate, const char *query,
 					int query_loc, int *query_len_p);
-void fill_in_constant_lengths(pgqpJumbleState *jstate, const char *query,
+void pgqp_fill_in_constant_lengths(pgqpJumbleState *jstate, const char *query,
 							  int query_loc);
 
 #else
-char *gen_normquery(JumbleState *jstate, const char *query,
+char *pgqp_gen_normquery(JumbleState *jstate, const char *query,
 					int query_loc, int *query_len_p);
 
-void fill_in_constant_lengths(JumbleState *jstate, const char *query,
+void pgqp_fill_in_constant_lengths(JumbleState *jstate, const char *query,
 							  int query_loc);
 #endif
 
-int comp_location(const void *a, const void *b);
+int pgqp_comp_location(const void *a, const void *b);
 
 #endif
 
