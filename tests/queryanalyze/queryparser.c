@@ -629,7 +629,7 @@ bool do_parse(char* query, char* (*output_fnc)(const void*) )
 	// printf("%s\n", plan_out->data);
 
 
-	compressed_dst = palloc(plan_out->len);
+	compressed_dst = palloc(PGLZ_MAX_OUTPUT(plan_out->len));
 	uncompressed_dst = palloc(plan_out->len);
     len = pglz_compress(plan_out->data,
                         plan_out->len,
