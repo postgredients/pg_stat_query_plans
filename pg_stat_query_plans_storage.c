@@ -149,7 +149,7 @@ pgqpTextStorageEntry *pgqp_store_text(const char *data, pgqpTextsKind kind,
       char *compressed_dst;
       int len;
       entry->origin_text_len = strlen(data) + 1;
-      compressed_dst = palloc(entry->origin_text_len);
+      compressed_dst = palloc(PGLZ_MAX_OUTPUT(entry->origin_text_len));
       len = pglz_compress(data, entry->origin_text_len, compressed_dst,
                           PGLZ_strategy_default);
       if (len > max_size) {
