@@ -50,28 +50,8 @@ BEGIN \;
 SELECT 2.0 AS "float" \;
 SELECT 'world' AS "text" \;
 COMMIT;
- float 
--------
-   2.0
-(1 row)
-
- text  
--------
- world
-(1 row)
-
 -- compound with empty statements and spurious leading spacing
 \;\;   SELECT 3 + 3 \;\;\;   SELECT ' ' || ' !' \;\;   SELECT 1 + 4 \;;
- ?column? 
-----------
-        6
-(1 row)
-
- ?column? 
-----------
-   !
-(1 row)
-
  ?column? 
 ----------
         5
@@ -81,11 +61,6 @@ COMMIT;
 SELECT 1 + 1 + 1 AS "add" \gset
 SELECT :add + 1 + 1 AS "add" \;
 SELECT :add + 1 + 1 AS "add" \gset
- add 
------
-   5
-(1 row)
-
 -- set operator
 SELECT 1 AS i UNION SELECT 2 ORDER BY i;
  i 
@@ -126,7 +101,7 @@ SELECT query, calls, rows FROM pg_stat_query_plans_sql ORDER BY query COLLATE "C
 ------------------------------------------------------------------------------------+-------+------
  PREPARE pgqp_test (int) AS SELECT $1, $2 LIMIT $3                                  |     1 |    1
  SELECT $1                                                                         +|     4 |    4
-   -- multiline                                                                    +|       | 
+                                                                                   +|       | 
    AS "text"                                                                        |       | 
  SELECT $1 + $2                                                                     |     2 |    2
  SELECT $1 + $2 + $3 AS "add"                                                       |     3 |    3
