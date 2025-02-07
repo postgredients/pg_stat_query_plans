@@ -9,7 +9,7 @@ pgqpTextStorageEntry *pgqp_store_text(const char *data, pgqpTextsKind kind,
 									  uint64 id_high);
 
 void pgqp_store(const char *query,
-				StringInfo execution_plan,
+				uint64 planId,
 				uint64 queryId,
 				QueryDesc *qd,
 				int query_location, int query_len,

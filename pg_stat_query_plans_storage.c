@@ -357,7 +357,7 @@ static uint64 pgqp_hash_string(const char *str, int len) {
  * If kind is PGQP_PLAN or PGQP_EXEC, its value is used as the array position
  * for the arrays in the pgqpCounters field.
  */
-void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
+void pgqp_store(const char *query, uint64 planId, uint64 queryId,
                 QueryDesc *qd, int query_location, int query_len,
                 pgqpStoreKind kind, double total_time, uint64 rows,
                 const BufferUsage *bufusage,
@@ -513,14 +513,9 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
 
   }
 
-  if (execution_plan) {
-    int64 planId;
+  if (planId != UINT64CONST(0)) {
     pgqpAssert(qd);
-    pgqpAssert(execution_plan->data);
-    pgqpAssert(execution_plan->len >= 0);
 
-    planId = hash_any_extended((const unsigned char *)execution_plan->data,
-                               execution_plan->len, PGQP_ID_SEEDVALUE);
     memset(&plan_key, 0, sizeof(pgqpPlanHashKey));
 
     plan_key.userid = GetUserId();
@@ -564,9 +559,8 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
       /* Store original query text */
       plan_entry->query_text =
           pgqp_store_text(query, PGQP_SQLTEXT, planId, queryId);
-      /* Store normalized plan */
-      plan_entry->gen_plan = pgqp_store_text(execution_plan->data,
-                                             PGQP_GENSQLPLAN, planId, queryId);
+      /* Bo not store normalized plan anymore */
+
       /*
        * Now make explain plan again - with user settings to show it in
        * pg_stat_query_plans_plan_ya

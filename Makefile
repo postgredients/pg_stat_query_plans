@@ -5,7 +5,8 @@ OBJS = \
 	$(WIN32RES) \
 	pg_stat_query_plans.o \
 	pg_stat_query_plans_storage.o \
-	pg_stat_query_plans_parser.o
+	pg_stat_query_plans_parser.o \
+	pg_stat_query_plans_id.o
 
 EXTENSION = pg_stat_query_plans
 DATA = pg_stat_query_plans--1.0.sql
