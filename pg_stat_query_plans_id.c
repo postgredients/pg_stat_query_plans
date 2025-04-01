@@ -98,7 +98,9 @@ static uint64 hashTargetRel(Plan *plan, Index rti, ExplainState *es, uint64 leve
 		case T_IndexOnlyScan:
 		case T_BitmapHeapScan:
 		case T_TidScan:
+#if PG_VERSION_NUM >= 140000
 		case T_TidRangeScan:
+#endif
 		case T_ForeignScan:
 		case T_CustomScan:
 		case T_ModifyTable:
@@ -126,12 +128,14 @@ static uint64 hashTargetRel(Plan *plan, Index rti, ExplainState *es, uint64 leve
 			}
 			break;
 		case T_TableFuncScan:
+#if PG_VERSION_NUM >= 170000
 			{
 				TableFunc  *tablefunc = ((TableFuncScan *) plan)->tablefunc;
 
 				Assert(rte->rtekind == RTE_TABLEFUNC);
 				planId += hashUInt64(tablefunc->functype, level);
 			}
+#endif
 			break;
 		case T_ValuesScan:
 		case T_CteScan:
@@ -231,7 +235,9 @@ uint64 hashNode(PlanState *planstate, ExplainState *es, uint64 level) {
 		case T_SampleScan:
 		case T_BitmapHeapScan:
 		case T_TidScan:
+#if PG_VERSION_NUM >= 140000
 		case T_TidRangeScan:
+#endif
 		case T_SubqueryScan:
 		case T_FunctionScan:
 		case T_TableFuncScan:
@@ -252,7 +258,9 @@ uint64 hashNode(PlanState *planstate, ExplainState *es, uint64 level) {
         case T_GatherMerge:
         case T_NamedTuplestoreScan:
         case T_Material:
+#if PG_VERSION_NUM >= 140000
         case T_Memoize:
+#endif
         case T_Sort:
         case T_IncrementalSort:
         case T_Group:

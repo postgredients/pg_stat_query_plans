@@ -1165,7 +1165,7 @@ static void pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
     INSTR_TIME_SUBTRACT(bufusage.blk_write_time, bufusage_start.blk_write_time);
 #endif
 
-    pgqp_store(queryString, NULL, 0, /* signal that it's a utility stmt */
+    pgqp_store(queryString, 0, 0, /* signal that it's a utility stmt */
                NULL, pstmt->stmt_location, pstmt->stmt_len, PGQP_EXEC,
                INSTR_TIME_GET_MILLISEC(duration), rows, &bufusage,
 #if PG_VERSION_NUM >= 130000

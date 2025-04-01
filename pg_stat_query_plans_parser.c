@@ -23,8 +23,6 @@
 
 #if PG_VERSION_NUM < 140000
 
-static bool need_replace(int token);
-
 /*
  * pgqpAppendJumble: Append a value that is substantive in a given query to
  * the current jumble.
