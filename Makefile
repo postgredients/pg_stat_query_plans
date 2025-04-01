@@ -19,11 +19,14 @@ endif
 PG_CPPFLAGS = -DPGQP_ASSERT_CHECKING
 
 REGRESS_OPTS = --temp-config $(top_srcdir)/contrib/pg_stat_query_plans/pg_stat_query_plans.conf
-REGRESS = pg_stat_query_plans_sql pg_stat_query_plans
-# Disabled because these tests require
-# "shared_preload_libraries=pg_stat_query_plans",
+REGRESS = select dml cursors utility level_tracking planning \
+	user_activity wal privileges extended \
+	cleanup
+# Disabled because these tests require "shared_preload_libraries=pg_stat_statements",
 # which typical installcheck users do not have (e.g. buildfarm clients).
-# NO_INSTALLCHECK = 1
+NO_INSTALLCHECK = 1
+
+TAP_TESTS = 0
 
 ifdef USE_PGXS
 PG_CONFIG = pg_config
