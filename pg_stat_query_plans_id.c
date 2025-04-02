@@ -10,7 +10,9 @@
 #include "common/hashfn.h"
 #include "nodes/extensible.h"
 #include "parser/parsetree.h"
+#include "utils/guc.h"
 
+#include "pg_stat_query_plans_common.h"
 #include "pg_stat_query_plans_id.h"
 
 
@@ -415,8 +417,8 @@ uint64 getPlanId(QueryDesc *queryDesc) {
     es->pstmt = queryDesc->plannedstmt;
     es->rtable = queryDesc->plannedstmt->rtable;
     id = hashNode(queryDesc->planstate, es, 9);
-    if (id == UINT64CONST(0))
-        id = UINT64CONST(1);
+    if (id == invalid_id)
+        id = any_id;
     resetStringInfo(es->str);
     MemoryContextSwitchTo(oldcxt);
     return id;

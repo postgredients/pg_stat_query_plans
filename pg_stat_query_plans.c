@@ -138,6 +138,10 @@ char *pgqp_storage = NULL;
 
 const int MEAN_PLANS_PER_QUERY = 2;
 
+const uint64 invalid_id = UINT64CONST(0);
+const uint64 any_id = UINT64CONST(1);
+const uint64 another_any_id = UINT64CONST(2);
+
 int pgqp_max;              /* max # statements to track */
 int pgqp_max_plans;        /* max # plans to track */
 int pgqp_storage_memory;   /* memory used to store plan and query texts */
@@ -488,7 +492,7 @@ pgqp_post_parse_analyze(ParseState *pstate, Query *query)
     return;
 
 #if PG_VERSION_NUM < 140000
-  if (query->queryId != UINT64CONST(0))
+  if (query->queryId != invalid_id)
     return;
 #endif
 
@@ -499,7 +503,7 @@ pgqp_post_parse_analyze(ParseState *pstate, Query *query)
    */
   if (query->utilityStmt) {
     if (pgqp_track_utility && !PGQP_HANDLED_UTILITY(query->utilityStmt))
-      query->queryId = UINT64CONST(0);
+      query->queryId = invalid_id;
     return;
   }
 
@@ -522,8 +526,8 @@ pgqp_post_parse_analyze(ParseState *pstate, Query *query)
    * If we are unlucky enough to get a hash of zero, use 1 instead, to
    * prevent confusion with the utility-statement case.
    */
-  if (query->queryId == UINT64CONST(0))
-    query->queryId = UINT64CONST(1);
+  if (query->queryId == invalid_id)
+    query->queryId = any_id;
 #endif
 
 /*
@@ -571,7 +575,7 @@ static PlannedStmt *pgqp_planner(Query *parse, const char *query_string,
    * top level planner call.
    */
   if (pgqp_enabled(pgqp_plan_nested_level + pgqp_exec_nested_level) &&
-      pgqp_track_planning && query_string && parse->queryId != UINT64CONST(0)) {
+      pgqp_track_planning && query_string && parse->queryId != invalid_id) {
     instr_time start;
     instr_time duration;
     BufferUsage bufusage_start, bufusage;
@@ -643,7 +647,7 @@ static void pgqp_ExecutorStart(QueryDesc *queryDesc, int eflags) {
    * utility statements.
    */
   if (pgqp_enabled(pgqp_exec_nested_level) &&
-      queryDesc->plannedstmt->queryId != UINT64CONST(0)) {
+      queryDesc->plannedstmt->queryId != invalid_id) {
     /*
      * Set up to track total elapsed time in ExecutorRun.  Make sure the
      * space is allocated in the per-query context so it will go away at
@@ -735,7 +739,7 @@ static void pgqp_ExecutorEnd(QueryDesc *queryDesc) {
   MemoryContext myctx;
   MemoryContext oldctx;
 
-  if (queryId != UINT64CONST(0) && queryDesc->totaltime &&
+  if (queryId != invalid_id && queryDesc->totaltime &&
       pgqp_enabled(pgqp_exec_nested_level)) {
     /*
      * Make sure stats accumulation is done.  (Note: it's okay if several
@@ -820,7 +824,7 @@ pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 * only.
 	 */
 	if (enabled)
-		pstmt->queryId = UINT64CONST(0);
+		pstmt->queryId = invalid_id;
 
 	/*
 	 * If it's an EXECUTE statement, we don't track it and don't increment the
@@ -973,7 +977,7 @@ static void pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
    * only.
    */
   if (pgqp_enabled(pgqp_exec_nested_level) && pgqp_track_utility)
-    pstmt->queryId = UINT64CONST(0);
+    pstmt->queryId = invalid_id;
 
   /*
    * If it's an EXECUTE statement, we don't track it and don't increment the
