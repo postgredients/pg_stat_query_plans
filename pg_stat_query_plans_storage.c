@@ -357,7 +357,7 @@ static uint64 pgqp_hash_string(const char *str, int len) {
  * If kind is PGQP_PLAN or PGQP_EXEC, its value is used as the array position
  * for the arrays in the pgqpCounters field.
  */
-void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
+void pgqp_store(const char *query, uint64 planId, uint64 queryId,
                 QueryDesc *qd, int query_location, int query_len,
                 pgqpStoreKind kind, double total_time, uint64 rows,
                 const BufferUsage *bufusage,
@@ -392,7 +392,7 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
    * Nothing to do if compute_query_id isn't enabled and no other module
    * computed a query identifier.
    */
-  if (queryId == UINT64CONST(0)) {
+  if (queryId == invalid_id) {
     return;
   }
 
@@ -429,7 +429,7 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
   /*
    * For utility statements, we just hash the query string to get an ID.
    */
-  if (queryId == UINT64CONST(0)) {
+  if (queryId == invalid_id) {
     queryId = pgqp_hash_string(query, query_len);
 
     /*
@@ -437,8 +437,8 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
      * queryID as 2 instead, queryID 1 is already in use for normal
      * statements.
      */
-    if (queryId == UINT64CONST(0))
-      queryId = UINT64CONST(2);
+    if (queryId == invalid_id)
+      queryId = another_any_id;
   }
 #endif
 
@@ -513,14 +513,9 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
 
   }
 
-  if (execution_plan) {
-    int64 planId;
+  if (planId != invalid_id) {
     pgqpAssert(qd);
-    pgqpAssert(execution_plan->data);
-    pgqpAssert(execution_plan->len >= 0);
 
-    planId = hash_any_extended((const unsigned char *)execution_plan->data,
-                               execution_plan->len, PGQP_ID_SEEDVALUE);
     memset(&plan_key, 0, sizeof(pgqpPlanHashKey));
 
     plan_key.userid = GetUserId();
@@ -564,9 +559,8 @@ void pgqp_store(const char *query, StringInfo execution_plan, uint64 queryId,
       /* Store original query text */
       plan_entry->query_text =
           pgqp_store_text(query, PGQP_SQLTEXT, planId, queryId);
-      /* Store normalized plan */
-      plan_entry->gen_plan = pgqp_store_text(execution_plan->data,
-                                             PGQP_GENSQLPLAN, planId, queryId);
+      /* Bo not store normalized plan anymore */
+
       /*
        * Now make explain plan again - with user settings to show it in
        * pg_stat_query_plans_plan_ya
@@ -1092,7 +1086,7 @@ void pgqp_entry_reset(Oid userid, Oid dbid, uint64 queryid) {
   num_entries = hash_get_num_entries(pgqp_queries);
 
   /* We should scan all entries and delete corresponding items */
-  if (userid != 0 || dbid != 0 || queryid != UINT64CONST(0)) {
+  if (userid != 0 || dbid != 0 || queryid != invalid_id) {
     /* Remove queries */
     hash_seq_init(&hash_seq, pgqp_queries);
     while ((entry = hash_seq_search(&hash_seq)) != NULL) {

@@ -75,6 +75,7 @@
 #include "pg_stat_query_plans_parser.h"
 #include "pg_stat_query_plans_storage.h"
 #include "pg_stat_query_plans_assert.h"
+#include "pg_stat_query_plans_id.h"
 #include "utils/errcodes.h"
 #include "utils/memutils.h"
 #include "utils/timestamp.h"
@@ -137,6 +138,10 @@ char *pgqp_storage = NULL;
 
 const int MEAN_PLANS_PER_QUERY = 2;
 
+const uint64 invalid_id = UINT64CONST(0);
+const uint64 any_id = UINT64CONST(1);
+const uint64 another_any_id = UINT64CONST(2);
+
 int pgqp_max;              /* max # statements to track */
 int pgqp_max_plans;        /* max # plans to track */
 int pgqp_storage_memory;   /* memory used to store plan and query texts */
@@ -173,8 +178,13 @@ static PlannedStmt *pgqp_planner(Query *parse, const char *query_string,
                                  int cursorOptions, ParamListInfo boundParams);
 #endif
 static void pgqp_ExecutorStart(QueryDesc *queryDesc, int eflags);
+#if PG_VERSION_NUM < 180000
 static void pgqp_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction,
                              uint64 count, bool execute_once);
+#else
+static void pgqp_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction,
+                             uint64 count);
+#endif
 static void pgqp_ExecutorFinish(QueryDesc *queryDesc);
 static void pgqp_ExecutorEnd(QueryDesc *queryDesc);
 #if PG_VERSION_NUM >= 140000
@@ -482,7 +492,7 @@ pgqp_post_parse_analyze(ParseState *pstate, Query *query)
     return;
 
 #if PG_VERSION_NUM < 140000
-  if (query->queryId != UINT64CONST(0))
+  if (query->queryId != invalid_id)
     return;
 #endif
 
@@ -493,7 +503,7 @@ pgqp_post_parse_analyze(ParseState *pstate, Query *query)
    */
   if (query->utilityStmt) {
     if (pgqp_track_utility && !PGQP_HANDLED_UTILITY(query->utilityStmt))
-      query->queryId = UINT64CONST(0);
+      query->queryId = invalid_id;
     return;
   }
 
@@ -516,8 +526,8 @@ pgqp_post_parse_analyze(ParseState *pstate, Query *query)
    * If we are unlucky enough to get a hash of zero, use 1 instead, to
    * prevent confusion with the utility-statement case.
    */
-  if (query->queryId == UINT64CONST(0))
-    query->queryId = UINT64CONST(1);
+  if (query->queryId == invalid_id)
+    query->queryId = any_id;
 #endif
 
 /*
@@ -532,7 +542,7 @@ pgqp_post_parse_analyze(ParseState *pstate, Query *query)
 #else
   if (jstate.clocations_count > 0)
 #endif
-    pgqp_store(pstate->p_sourcetext, NULL, query->queryId, NULL,
+    pgqp_store(pstate->p_sourcetext, 0, query->queryId, NULL,
                query->stmt_location, query->stmt_len, PGQP_INVALID, 0, 0, NULL,
                NULL, NULL,
 #if PG_VERSION_NUM >= 140000
@@ -565,7 +575,7 @@ static PlannedStmt *pgqp_planner(Query *parse, const char *query_string,
    * top level planner call.
    */
   if (pgqp_enabled(pgqp_plan_nested_level + pgqp_exec_nested_level) &&
-      pgqp_track_planning && query_string && parse->queryId != UINT64CONST(0)) {
+      pgqp_track_planning && query_string && parse->queryId != invalid_id) {
     instr_time start;
     instr_time duration;
     BufferUsage bufusage_start, bufusage;
@@ -606,7 +616,7 @@ static PlannedStmt *pgqp_planner(Query *parse, const char *query_string,
     memset(&walusage, 0, sizeof(WalUsage));
     WalUsageAccumDiff(&walusage, &pgWalUsage, &walusage_start);
 
-    pgqp_store(query_string, NULL, parse->queryId, NULL, parse->stmt_location,
+    pgqp_store(query_string, 0, parse->queryId, NULL, parse->stmt_location,
                parse->stmt_len, PGQP_PLAN, INSTR_TIME_GET_MILLISEC(duration), 0,
                &bufusage, &walusage, NULL, NULL);
   } else {
@@ -637,7 +647,7 @@ static void pgqp_ExecutorStart(QueryDesc *queryDesc, int eflags) {
    * utility statements.
    */
   if (pgqp_enabled(pgqp_exec_nested_level) &&
-      queryDesc->plannedstmt->queryId != UINT64CONST(0)) {
+      queryDesc->plannedstmt->queryId != invalid_id) {
     /*
      * Set up to track total elapsed time in ExecutorRun.  Make sure the
      * space is allocated in the per-query context so it will go away at
@@ -660,15 +670,27 @@ static void pgqp_ExecutorStart(QueryDesc *queryDesc, int eflags) {
 /*
  * ExecutorRun hook: all we need do is track nesting depth
  */
+#if PG_VERSION_NUM < 180000
 static void pgqp_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction,
                              uint64 count, bool execute_once) {
+#else
+static void pgqp_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction,
+                             uint64 count) {
+#endif
   pgqp_exec_nested_level++;
   PG_TRY();
   {
+#if PG_VERSION_NUM < 180000
     if (prev_ExecutorRun)
       prev_ExecutorRun(queryDesc, direction, count, execute_once);
     else
       standard_ExecutorRun(queryDesc, direction, count, execute_once);
+#else
+    if (prev_ExecutorRun)
+      prev_ExecutorRun(queryDesc, direction, count);
+    else
+      standard_ExecutorRun(queryDesc, direction, count);
+#endif
   }
 #if PG_VERSION_NUM < 130000
   PG_CATCH();
@@ -713,12 +735,11 @@ static void pgqp_ExecutorFinish(QueryDesc *queryDesc) {
  */
 static void pgqp_ExecutorEnd(QueryDesc *queryDesc) {
   uint64 queryId = queryDesc->plannedstmt->queryId;
-  ExplainState *es_planid;
-  StringInfo execution_plan = NULL;
+  uint64 planId = 0;
   MemoryContext myctx;
   MemoryContext oldctx;
 
-  if (queryId != UINT64CONST(0) && queryDesc->totaltime &&
+  if (queryId != invalid_id && queryDesc->totaltime &&
       pgqp_enabled(pgqp_exec_nested_level)) {
     /*
      * Make sure stats accumulation is done.  (Note: it's okay if several
@@ -741,32 +762,11 @@ static void pgqp_ExecutorEnd(QueryDesc *queryDesc) {
      */
 
     if (pgqp_track_plans) {
-      es_planid = NewExplainState();
-      es_planid->costs = false;
-      es_planid->verbose = true;
-      es_planid->format = EXPLAIN_FORMAT_TEXT;
-      PG_TRY();
-      {
-        ExplainBeginOutput(es_planid);
-        ExplainPrintPlan(es_planid, queryDesc);
-        ExplainEndOutput(es_planid);
-      }
-      PG_CATCH();
-      {
-        resetStringInfo(es_planid->str);
-        appendStringInfo(es_planid->str, "Failed to generate plan info");
-      }
-      PG_END_TRY();
-      if (pgqp_normalize_plans) {
-        execution_plan = gen_normplan(es_planid->str->data);
-      } else {
-        execution_plan = es_planid->str;
-      }
-
+      planId = getPlanId(queryDesc);
     }
 
     pgqp_store(
-        queryDesc->sourceText, execution_plan, queryId, queryDesc,
+        queryDesc->sourceText, planId, queryId, queryDesc,
         queryDesc->plannedstmt->stmt_location, queryDesc->plannedstmt->stmt_len,
         PGQP_EXEC, queryDesc->totaltime->total * 1000.0, /* convert to msec */
         queryDesc->estate->es_processed, &queryDesc->totaltime->bufusage,
@@ -791,7 +791,165 @@ static void pgqp_ExecutorEnd(QueryDesc *queryDesc) {
     standard_ExecutorEnd(queryDesc);
 }
 
-#if PG_VERSION_NUM >= 140000
+#if PG_VERSION_NUM >= 180000
+
+/*
+ * ProcessUtility hook
+ */
+static void
+pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
+					bool readOnlyTree,
+					ProcessUtilityContext context,
+					ParamListInfo params, QueryEnvironment *queryEnv,
+					DestReceiver *dest, QueryCompletion *qc)
+{
+	Node	   *parsetree = pstmt->utilityStmt;
+	uint64		saved_queryId = pstmt->queryId;
+	int			saved_stmt_location = pstmt->stmt_location;
+	int			saved_stmt_len = pstmt->stmt_len;
+	bool		enabled = pgqp_track_utility && pgqp_enabled(pgqp_exec_nested_level);
+
+	/*
+	 * Force utility statements to get queryId zero.  We do this even in cases
+	 * where the statement contains an optimizable statement for which a
+	 * queryId could be derived (such as EXPLAIN or DECLARE CURSOR).  For such
+	 * cases, runtime control will first go through ProcessUtility and then
+	 * the executor, and we don't want the executor hooks to do anything,
+	 * since we are already measuring the statement's costs at the utility
+	 * level.
+	 *
+	 * Note that this is only done if pg_stat_statements is enabled and
+	 * configured to track utility statements, in the unlikely possibility
+	 * that user configured another extension to handle utility statements
+	 * only.
+	 */
+	if (enabled)
+		pstmt->queryId = invalid_id;
+
+	/*
+	 * If it's an EXECUTE statement, we don't track it and don't increment the
+	 * nesting level.  This allows the cycles to be charged to the underlying
+	 * PREPARE instead (by the Executor hooks), which is much more useful.
+	 *
+	 * We also don't track execution of PREPARE.  If we did, we would get one
+	 * hash table entry for the PREPARE (with hash calculated from the query
+	 * string), and then a different one with the same query string (but hash
+	 * calculated from the query tree) would be used to accumulate costs of
+	 * ensuing EXECUTEs.  This would be confusing.  Since PREPARE doesn't
+	 * actually run the planner (only parse+rewrite), its costs are generally
+	 * pretty negligible and it seems okay to just ignore it.
+	 */
+	if (enabled &&
+		!IsA(parsetree, ExecuteStmt) &&
+		!IsA(parsetree, PrepareStmt))
+	{
+		instr_time	start;
+		instr_time	duration;
+		uint64		rows;
+		BufferUsage bufusage_start,
+					bufusage;
+		WalUsage	walusage_start,
+					walusage;
+
+		bufusage_start = pgBufferUsage;
+		walusage_start = pgWalUsage;
+		INSTR_TIME_SET_CURRENT(start);
+
+		pgqp_exec_nested_level++;
+		PG_TRY();
+		{
+			if (prev_ProcessUtility)
+				prev_ProcessUtility(pstmt, queryString, readOnlyTree,
+									context, params, queryEnv,
+									dest, qc);
+			else
+				standard_ProcessUtility(pstmt, queryString, readOnlyTree,
+										context, params, queryEnv,
+										dest, qc);
+		}
+		PG_FINALLY();
+		{
+			pgqp_exec_nested_level--;
+		}
+		PG_END_TRY();
+
+		/*
+		 * CAUTION: do not access the *pstmt data structure again below here.
+		 * If it was a ROLLBACK or similar, that data structure may have been
+		 * freed.  We must copy everything we still need into local variables,
+		 * which we did above.
+		 *
+		 * For the same reason, we can't risk restoring pstmt->queryId to its
+		 * former value, which'd otherwise be a good idea.
+		 */
+
+		INSTR_TIME_SET_CURRENT(duration);
+		INSTR_TIME_SUBTRACT(duration, start);
+
+		/*
+		 * Track the total number of rows retrieved or affected by the utility
+		 * statements of COPY, FETCH, CREATE TABLE AS, CREATE MATERIALIZED
+		 * VIEW, REFRESH MATERIALIZED VIEW and SELECT INTO.
+		 */
+		rows = (qc && (qc->commandTag == CMDTAG_COPY ||
+					   qc->commandTag == CMDTAG_FETCH ||
+					   qc->commandTag == CMDTAG_SELECT ||
+					   qc->commandTag == CMDTAG_REFRESH_MATERIALIZED_VIEW)) ?
+			qc->nprocessed : 0;
+
+		/* calc differences of buffer counters. */
+		memset(&bufusage, 0, sizeof(BufferUsage));
+		BufferUsageAccumDiff(&bufusage, &pgBufferUsage, &bufusage_start);
+
+		/* calc differences of WAL counters. */
+		memset(&walusage, 0, sizeof(WalUsage));
+		WalUsageAccumDiff(&walusage, &pgWalUsage, &walusage_start);
+
+		pgqp_store(queryString, 0, saved_queryId, NULL, saved_stmt_location,
+                saved_stmt_len, PGQP_EXEC, INSTR_TIME_GET_MILLISEC(duration),
+                rows, &bufusage, &walusage, NULL, NULL);
+	}
+	else
+	{
+		/*
+		 * Even though we're not tracking execution time for this statement,
+		 * we must still increment the nesting level, to ensure that functions
+		 * evaluated within it are not seen as top-level calls.  But don't do
+		 * so for EXECUTE; that way, when control reaches pgss_planner or
+		 * pgss_ExecutorStart, we will treat the costs as top-level if
+		 * appropriate.  Likewise, don't bump for PREPARE, so that parse
+		 * analysis will treat the statement as top-level if appropriate.
+		 *
+		 * To be absolutely certain we don't mess up the nesting level,
+		 * evaluate the bump_level condition just once.
+		 */
+		bool		bump_level =
+			!IsA(parsetree, ExecuteStmt) &&
+			!IsA(parsetree, PrepareStmt);
+
+		if (bump_level)
+			pgqp_exec_nested_level++;
+		PG_TRY();
+		{
+			if (prev_ProcessUtility)
+				prev_ProcessUtility(pstmt, queryString, readOnlyTree,
+									context, params, queryEnv,
+									dest, qc);
+			else
+				standard_ProcessUtility(pstmt, queryString, readOnlyTree,
+										context, params, queryEnv,
+										dest, qc);
+		}
+		PG_FINALLY();
+		{
+			if (bump_level)
+				pgqp_exec_nested_level--;
+		}
+		PG_END_TRY();
+	}
+}
+
+#elif PG_VERSION_NUM >= 140000
 /*
  * ProcessUtility hook
  */
@@ -819,7 +977,7 @@ static void pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
    * only.
    */
   if (pgqp_enabled(pgqp_exec_nested_level) && pgqp_track_utility)
-    pstmt->queryId = UINT64CONST(0);
+    pstmt->queryId = invalid_id;
 
   /*
    * If it's an EXECUTE statement, we don't track it and don't increment the
@@ -884,7 +1042,7 @@ static void pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
     memset(&walusage, 0, sizeof(WalUsage));
     WalUsageAccumDiff(&walusage, &pgWalUsage, &walusage_start);
 
-    pgqp_store(queryString, NULL, saved_queryId, NULL, pstmt->stmt_location,
+    pgqp_store(queryString, 0, saved_queryId, NULL, pstmt->stmt_location,
                pstmt->stmt_len, PGQP_EXEC, INSTR_TIME_GET_MILLISEC(duration),
                rows, &bufusage, &walusage, NULL, NULL);
   } else {
@@ -1011,7 +1169,7 @@ static void pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
     INSTR_TIME_SUBTRACT(bufusage.blk_write_time, bufusage_start.blk_write_time);
 #endif
 
-    pgqp_store(queryString, NULL, 0, /* signal that it's a utility stmt */
+    pgqp_store(queryString, 0, 0, /* signal that it's a utility stmt */
                NULL, pstmt->stmt_location, pstmt->stmt_len, PGQP_EXEC,
                INSTR_TIME_GET_MILLISEC(duration), rows, &bufusage,
 #if PG_VERSION_NUM >= 130000

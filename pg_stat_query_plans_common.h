@@ -313,3 +313,7 @@ extern bool example_log_triggers;	/* Log trigger trace in EXPLAIN */
 	} while(0)
 
 #endif
+
+extern const uint64 invalid_id;      /* identifier is not set */
+extern const uint64 any_id;          /* identifier was set to zero and we re-set it to non-zero value */
+extern const uint64 another_any_id;  /* identifier was set to zero, we re-set it to non-zero value and wan't to distinguish it from any_id */

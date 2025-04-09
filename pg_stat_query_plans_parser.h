@@ -1,5 +1,5 @@
-#ifndef PGSTATSTATEMENSYAP_H
-#define PGSTATSTATEMENSYAP_H
+#ifndef PGSTATQUERYPLANSP_H
+#define PGSTATQUERYPLANSP_H
 
 #if PG_VERSION_NUM < 140000
 #define JUMBLE_SIZE                             1024    /* query serialization buffer size */
@@ -61,5 +61,3 @@ void pgqp_fill_in_constant_lengths(JumbleState *jstate, const char *query,
 int pgqp_comp_location(const void *a, const void *b);
 
 #endif
-
-StringInfo gen_normplan(char *execution_plan);
