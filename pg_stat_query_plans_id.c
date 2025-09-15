@@ -7,6 +7,9 @@
 #include "executor/execdesc.h"
 #include "nodes/execnodes.h"
 #include "commands/explain.h"
+#if PG_VERSION_NUM >= 180000
+#include "commands/explain_state.h"
+#endif
 #include "common/hashfn.h"
 #include "nodes/extensible.h"
 #include "parser/parsetree.h"
