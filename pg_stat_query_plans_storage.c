@@ -10,6 +10,9 @@
 #include "access/hash.h"
 #endif
 #include "commands/explain.h"
+#if PG_VERSION_NUM >= 180000
+#include "commands/explain_state.h"
+#endif
 #include "executor/instrument.h"
 #include "funcapi.h"
 #include "jit/jit.h"
