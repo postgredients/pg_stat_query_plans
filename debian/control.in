@@ -12,7 +12,8 @@ Build-Depends:
  postgresql-server-dev-14,
  postgresql-server-dev-15,
  postgresql-server-dev-16,
- postgresql-server-dev-17
+ postgresql-server-dev-17,
+ postgresql-server-dev-18
 Homepage: https://github.com/postgredients/pg_stat_query_plans
 #Vcs-Git: git://github.com:postgredients/pg_stat_query_plans
 #Vcs-Browser: https://github.com/postgredients/pg_stat_query_plans

@@ -13,7 +13,8 @@ Build-Depends:
  postgresql-server-dev-14,
  postgresql-server-dev-15,
  postgresql-server-dev-16,
- postgresql-server-dev-17
+ postgresql-server-dev-17,
+ postgresql-server-dev-18
 Homepage: https://github.com/postgredients/pg_stat_query_plans
 #Vcs-Git: git://github.com:postgredients/pg_stat_query_plans
 #Vcs-Browser: https://github.com/postgredients/pg_stat_query_plans
@@ -87,6 +88,17 @@ Description: PostgreSQL extension to gather per-query executioon plan statistics
 Package: postgresql-17-pgqp-ya
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}, postgresql-17
+Description: PostgreSQL extension to gather per-query executioon plan statistics.
+ Statistics gathered are the same as for original pg_stat_query_plans extension.
+ Difference is data stored per normalized execution plan, not query. Normalized
+ execution plan is derived from query execution plan after removing all unimportant
+ data such as cost and numeric values (quite similar to query normalization in
+ original pg_stat_query_plans). Query texts and plans are stored in memory and by
+ default packed by pg_lzcompress.
+
+Package: postgresql-18-pgqp-ya
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}, postgresql-18
 Description: PostgreSQL extension to gather per-query executioon plan statistics.
  Statistics gathered are the same as for original pg_stat_query_plans extension.
  Difference is data stored per normalized execution plan, not query. Normalized
