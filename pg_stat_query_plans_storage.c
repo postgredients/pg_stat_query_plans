@@ -589,6 +589,31 @@ void pgqp_store(const char *query, uint64 planId, uint64 queryId,
       /* Store plan text */
       plan_entry->example_plan =
           pgqp_store_text(es->str->data, PGQP_SQLPLAN, planId, queryId);
+      if (example_plan_format != EXPLAIN_FORMAT_TEXT)
+      {
+        es = NewExplainState();
+        es->verbose = example_log_verbose;
+        es->format = EXPLAIN_FORMAT_TEXT;
+        PG_TRY();
+        {
+          ExplainBeginOutput(es);
+          ExplainPrintPlan(es, qd);
+          if (example_log_triggers)
+            ExplainPrintTriggers(es, qd);
+          ExplainEndOutput(es);
+        }
+        PG_CATCH();
+        {
+          resetStringInfo(es->str);
+          appendStringInfo(es->str, "Failed to generate normalized plan ");
+        }
+        PG_END_TRY();
+      }
+      /* Store normalized plan as a text */
+      plan_entry->gen_plan =
+        pgqp_store_text(es->str->data, PGQP_GENSQLPLAN, planId, queryId);
+
+
       /* Increase plans counter for query */
       /* Query entry could be wiped out here so we should search it again */
       entry = (pgqpEntry *)hash_search(pgqp_queries, &key, HASH_FIND, NULL);
