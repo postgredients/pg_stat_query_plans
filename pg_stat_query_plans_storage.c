@@ -579,6 +579,17 @@ void pgqp_store(const char *query, uint64 planId, uint64 queryId,
         if (example_log_triggers)
           ExplainPrintTriggers(es, qd);
         ExplainEndOutput(es);
+
+	/* Remove last line break */
+        if (es->str->len > 0 && es->str->data[es->str->len - 1] == '\n')
+            es->str->data[--es->str->len] = '\0';
+
+        /* Fix JSON to output an object */
+        if (example_plan_format == EXPLAIN_FORMAT_JSON)
+        {
+            es->str->data[0] = '{';
+            es->str->data[es->str->len - 1] = '}';
+        }
       }
       PG_CATCH();
       {
@@ -589,29 +600,6 @@ void pgqp_store(const char *query, uint64 planId, uint64 queryId,
       /* Store plan text */
       plan_entry->example_plan =
           pgqp_store_text(es->str->data, PGQP_SQLPLAN, planId, queryId);
-      if (example_plan_format != EXPLAIN_FORMAT_TEXT)
-      {
-        es = NewExplainState();
-        es->verbose = example_log_verbose;
-        es->format = EXPLAIN_FORMAT_TEXT;
-        PG_TRY();
-        {
-          ExplainBeginOutput(es);
-          ExplainPrintPlan(es, qd);
-          if (example_log_triggers)
-            ExplainPrintTriggers(es, qd);
-          ExplainEndOutput(es);
-        }
-        PG_CATCH();
-        {
-          resetStringInfo(es->str);
-          appendStringInfo(es->str, "Failed to generate normalized plan ");
-        }
-        PG_END_TRY();
-      }
-      /* Store normalized plan as a text */
-      plan_entry->gen_plan =
-        pgqp_store_text(es->str->data, PGQP_GENSQLPLAN, planId, queryId);
 
 
       /* Increase plans counter for query */

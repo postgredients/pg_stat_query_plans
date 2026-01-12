@@ -215,10 +215,10 @@ EXPLAIN (costs off) SELECT a FROM generate_series(1,10) AS tab(a) WHERE a = 7;
 (2 rows)
 
 SELECT calls, rows, query FROM pg_stat_query_plans ORDER BY query COLLATE "C";
- calls | rows |                           query                            
--------+------+------------------------------------------------------------
-     2 |    0 | SELECT 1;
-     2 |    0 | SELECT a FROM generate_series(1,10) AS tab(a) WHERE a = 3;
+ calls | rows |                                     query                                      
+-------+------+--------------------------------------------------------------------------------
+     2 |    0 | EXPLAIN (costs off) SELECT 1;
+     2 |    0 | EXPLAIN (costs off) SELECT a FROM generate_series(1,10) AS tab(a) WHERE a = 3;
      1 |    1 | SELECT pg_stat_query_plans_reset() IS NOT NULL AS t;
 (3 rows)
 
@@ -315,13 +315,13 @@ COPY (UPDATE copy_stats SET b = b + 2 RETURNING *) TO STDOUT;
 COPY (DELETE FROM copy_stats WHERE a = 1 RETURNING *) TO STDOUT;
 1	4
 SELECT calls, rows, query FROM pg_stat_query_plans ORDER BY query COLLATE "C";
- calls | rows |                            query                             
--------+------+--------------------------------------------------------------
-     1 |    1 | DELETE FROM copy_stats WHERE a = 1 RETURNING *) TO STDOUT;
-     2 |    2 | INSERT INTO copy_stats VALUES (1, 1) RETURNING *) TO STDOUT;
-     2 |    2 | SELECT 1) TO STDOUT;
+ calls | rows |                               query                                
+-------+------+--------------------------------------------------------------------
+     1 |    1 | COPY (DELETE FROM copy_stats WHERE a = 1 RETURNING *) TO STDOUT;
+     2 |    2 | COPY (INSERT INTO copy_stats VALUES (1, 1) RETURNING *) TO STDOUT;
+     2 |    2 | COPY (SELECT 1) TO STDOUT;
+     2 |    4 | COPY (UPDATE copy_stats SET b = b + 1 RETURNING *) TO STDOUT;
      1 |    1 | SELECT pg_stat_query_plans_reset() IS NOT NULL AS t;
-     2 |    4 | UPDATE copy_stats SET b = b + 1 RETURNING *) TO STDOUT;
 (5 rows)
 
 DROP TABLE copy_stats;
@@ -348,8 +348,9 @@ DROP TABLE ctas_stats_2;
 SELECT calls, rows, query FROM pg_stat_query_plans ORDER BY query COLLATE "C";
  calls | rows |                              query                               
 -------+------+------------------------------------------------------------------
-     2 |    2 | SELECT 1 AS a;
-     2 |    4 | SELECT a AS col1, 2::int AS col2                                +
+     2 |    2 | CREATE TABLE ctas_stats_1 AS SELECT 1 AS a;
+     2 |    4 | CREATE TABLE ctas_stats_2 AS                                    +
+       |      |   SELECT a AS col1, 2::int AS col2                              +
        |      |     FROM generate_series(1, 10) AS tab(a) WHERE a < 5 AND a > 2;
      1 |    1 | SELECT pg_stat_query_plans_reset() IS NOT NULL AS t;
 (3 rows)
@@ -448,7 +449,7 @@ DEALLOCATE PREPARE ALL;
 SELECT calls, rows, query FROM pg_stat_query_plans ORDER BY query COLLATE "C";
  calls | rows |                        query                         
 -------+------+------------------------------------------------------
-     2 |    2 | SELECT $1 AS a;
+     2 |    2 | PREPARE stat_select AS SELECT $1 AS a;
      1 |    1 | SELECT 1 as a;
      1 |    1 | SELECT pg_stat_query_plans_reset() IS NOT NULL AS t;
 (3 rows)
@@ -569,10 +570,10 @@ FETCH FORWARD ALL pgss_cursor;
 
 COMMIT;
 SELECT calls, rows, query FROM pg_stat_query_plans ORDER BY query COLLATE "C";
- calls | rows |                         query                          
--------+------+--------------------------------------------------------
-     1 |    7 | SELECT * FROM pgss_matv;
-     1 |   10 | SELECT a, 'ctas' b FROM generate_series(1, 10) a;
+ calls | rows |                                    query                                    
+-------+------+-----------------------------------------------------------------------------
+     1 |   10 | CREATE TABLE pgss_ctas AS SELECT a, 'ctas' b FROM generate_series(1, 10) a;
+     1 |    7 | DECLARE pgss_cursor CURSOR FOR SELECT * FROM pgss_matv;
      1 |   10 | SELECT generate_series(1, 10) c INTO pgss_select_into;
      1 |    1 | SELECT pg_stat_query_plans_reset() IS NOT NULL AS t;
 (4 rows)

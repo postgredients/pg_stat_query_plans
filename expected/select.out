@@ -128,7 +128,7 @@ DEALLOCATE pgss_test;
 SELECT calls, rows, query FROM pg_stat_query_plans ORDER BY query COLLATE "C";
  calls | rows |                           query                            
 -------+------+------------------------------------------------------------
-     1 |    1 | SELECT $1, 'test' LIMIT 1;
+     1 |    1 | PREPARE pgss_test (int) AS SELECT $1, 'test' LIMIT 1;
      1 |    1 | SELECT ' ' || ' !' ;;   SELECT 1 + 4 ;;
      4 |    4 | SELECT 'hello'                                            +
        |      |   -- but this one will appear                             +
