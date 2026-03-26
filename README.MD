@@ -54,12 +54,12 @@ pg_stat_query_plans Usage
 
 pg_stat_query_plans create several objects.
 
-pg_stat_query_plans view
+pg_stat_query_plans_sql view
 --------------------------
 
-The statistics gathered by the module are made available via a view named pg_stat_query_plans. This view contains one row for each distinct combination of database ID, user ID, query ID and whether it's a top-level statement or not (up to the maximum number of distinct statements that the module can track). The columns of the view are shown in Table 1.
+The statistics gathered by the module are made available via a view named pg_stat_query_plans_sql. This view contains one row for each distinct combination of database ID, user ID, query ID and whether it's a top-level statement or not (up to the maximum number of distinct statements that the module can track). The columns of the view are shown in Table 1.
 
-Table 1. pg_stat_query_plans Columns
+Table 1. pg_stat_query_plans_sql Columns
 
 | Name                   | Type             | Description                                                                                                                  |
 | ---------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -109,10 +109,10 @@ Table 1. pg_stat_query_plans Columns
 | generation             | bigint           | Sequence number, increase each time query registered, so always change if query was deallocated and re-added                 |
 
 
-pg_stat_query_plans_plans view
+pg_stat_query_plans view
 --------------------------------
 
-pg_stat_query_plans_plans show detailed info about statements gathered by
+pg_stat_query_plans show detailed info about statements gathered by
 pg_stat_query_plans - which execution plan was used to process statements, how
 many times statement has been executed using specific execution plan, etc. This
 view contains one row for each distinct combination of database ID, user ID,
@@ -120,7 +120,7 @@ query ID, plan ID and whether it's a top-level statement or not (up to the
 maximum number of distinct statements that the module can track). The columns of
 the view are shown in Table 2.
 
-Table 2. pg_stat_query_plans_plans Columns
+Table 2. pg_stat_query_plans Columns
 
 | Name                   | Type             | Description                                                                                                                  |
 | ---------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -164,20 +164,20 @@ Table 2. pg_stat_query_plans_plans Columns
 | jit_optimization_time  | double precision | Total time spent by the statement on optimizing, in milliseconds                                                             |
 | jit_emission_count     | bigint           | Number of times code has been emitted                                                                                        |
 | jit_emission_time      | double precision | Total time spent by the statement on emitting code, in milliseconds                                                          |
-| startup_cost           | bigint           | The amount of work (cost) expended before output scan can start                                                              |
-| total_cost             | bigint           | Estimated cost if all rows were to be retrieved                                                                              |
+| startup_cost           | double precision | The amount of work (cost) expended before output scan can start                                                              |
+| total_cost             | double precision | Estimated cost if all rows were to be retrieved                                                                              |
 | plan_rows              | bigint           | The number of rows (estimation) output by the plan if executed to completion                                                 |
 | plan_width             | bigint           | Average width of rows in bytes (estimation)                                                                                  |
 | generation             | bigint           | Sequence number, increase each time execution plam registered, so always change if plan was deallocated and re-added         |
 
 
-pg_stat_query_plans_info_ya view
+pg_stat_query_plans_info view
 -------------------------------
 
-The statistics of the pg_stat_query_plans module itself are tracked and made available via a view named pg_stat_query_plans_info_ya. This view contains only a single row. The columns of the view are shown in Table 3:
+The statistics of the pg_stat_query_plans module itself are tracked and made available via a view named pg_stat_query_plans_info. This view contains only a single row. The columns of the view are shown in Table 3:
 
 
-Table 3. pg_stat_query_plans_info_ya Columns
+Table 3. pg_stat_query_plans_info Columns
 
 | Name                         | Type      | Description                                                                                                                                    |
 | ---------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
