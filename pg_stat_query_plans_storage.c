@@ -40,6 +40,9 @@
 #include "nodes/queryjumble.h"
 #endif
 #include "common/pg_lzcompress.h"
+#ifdef USE_LZ4
+#include <lz4.h>
+#endif
 #include "utils/memutils.h"
 #include "utils/timestamp.h"
 
@@ -80,6 +83,21 @@ char *get_decoded_text(volatile pgqpTextStorageEntry *s) {
 
   if (s->text_encoding == PGQP_PLAINTEXT)
     return SHMEM_TEXT_PTR(s->text_offset);
+#ifdef USE_LZ4
+  else if (s->text_encoding == PGQP_LZ4) {
+    uncompressed_dst = palloc(s->origin_text_len);
+    dlen = LZ4_decompress_safe(SHMEM_TEXT_PTR(s->text_offset),
+                               uncompressed_dst,
+                               s->text_len,
+                               s->origin_text_len);
+    if (dlen < 0) {
+      pfree(uncompressed_dst);
+      uncompressed_dst = palloc(strlen(fail_dec_str) + 1);
+      strcpy(uncompressed_dst, fail_dec_str);
+    }
+    return uncompressed_dst;
+  }
+#endif
   else {
     uncompressed_dst = palloc(s->origin_text_len);
     dlen = pglz_decompress(SHMEM_TEXT_PTR(s->text_offset), s->text_len,
@@ -149,10 +167,27 @@ pgqpTextStorageEntry *pgqp_store_text(const char *data, pgqpTextsKind kind,
 
     /* store offset to string */
     entry->text_offset = s->storage_offset;
+    entry->origin_text_len = strlen(data) + 1;
+#ifdef USE_LZ4
+    if (needed_encoding == PGQP_LZ4) {
+      int max_compressed = LZ4_compressBound(entry->origin_text_len);
+      char *compressed_dst = palloc(max_compressed);
+      int len = LZ4_compress_default(data, compressed_dst,
+                                     entry->origin_text_len, max_compressed);
+      if (len <= 0 || len > max_size) {
+        needed_encoding = PGQP_PLAINTEXT;
+      } else {
+        entry->text_len = len;
+        pgqpAssert(s->storage_offset + entry->text_len < pgqp_storage_memory);
+        memcpy(SHMEM_TEXT_PTR(s->storage_offset), compressed_dst, len);
+        entry->text_encoding = PGQP_LZ4;
+      }
+      pfree(compressed_dst);
+    }
+#endif
     if (needed_encoding == PGQP_PGLZ) {
       char *compressed_dst;
       int len;
-      entry->origin_text_len = strlen(data) + 1;
       compressed_dst = palloc(PGLZ_MAX_OUTPUT(entry->origin_text_len));
       len = pglz_compress(data, entry->origin_text_len, compressed_dst,
                           PGLZ_strategy_default);

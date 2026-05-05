@@ -16,6 +16,8 @@ ifneq ($(shell uname), SunOS)
 LDFLAGS+=-Wl,--build-id
 endif
 
+SHLIB_LINK += $(shell pg_config --libs | grep -o '\-llz4')
+
 PG_CPPFLAGS = -DPGQP_ASSERT_CHECKING
 
 REGRESS_OPTS = --temp-config $(top_srcdir)/contrib/pg_stat_query_plans/pg_stat_query_plans.conf
