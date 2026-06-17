@@ -176,7 +176,11 @@ static void pgqp_post_parse_analyze(ParseState *pstate, Query *query,
 #else
 static void pgqp_post_parse_analyze(ParseState *pstate, Query *query);
 #endif
-#if PG_VERSION_NUM >= 130000
+
+#if PG_VERSION_NUM >= 190000
+static PlannedStmt *pgqp_planner(Query *parse, const char *query_string,
+                                 int cursorOptions, ParamListInfo boundParams, ExplainState *es);
+#elif PG_VERSION_NUM >= 130000
 static PlannedStmt *pgqp_planner(Query *parse, const char *query_string,
                                  int cursorOptions, ParamListInfo boundParams);
 #endif
@@ -572,7 +576,11 @@ pgqp_post_parse_analyze(ParseState *pstate, Query *query)
  * if needed.
  */
 static PlannedStmt *pgqp_planner(Query *parse, const char *query_string,
-                                 int cursorOptions, ParamListInfo boundParams) {
+                                 int cursorOptions, ParamListInfo boundParams
+#if PG_VERSION_NUM >= 190000
+                                , ExplainState *es
+#endif
+                                 ) {
   PlannedStmt *result;
 
   /*
@@ -607,12 +615,21 @@ static PlannedStmt *pgqp_planner(Query *parse, const char *query_string,
     pgqp_plan_nested_level++;
     PG_TRY();
     {
-      if (prev_planner_hook)
-        result =
+    if (prev_planner_hook) {
+      result =
+#if PG_VERSION_NUM < 190000
             prev_planner_hook(parse, query_string, cursorOptions, boundParams);
-      else
-        result =
+#else
+            prev_planner_hook(parse, query_string, cursorOptions, boundParams, es);
+#endif
+    } else {
+      result =
+#if PG_VERSION_NUM < 190000
             standard_planner(parse, query_string, cursorOptions, boundParams);
+#else
+            standard_planner(parse, query_string, cursorOptions, boundParams, es);
+#endif
+    }
     }
     PG_FINALLY();
     { pgqp_plan_nested_level--; }
@@ -633,12 +650,21 @@ static PlannedStmt *pgqp_planner(Query *parse, const char *query_string,
                parse->stmt_len, PGQP_PLAN, INSTR_TIME_GET_MILLISEC(duration), 0,
                &bufusage, &walusage, NULL, NULL);
   } else {
-    if (prev_planner_hook)
+    if (prev_planner_hook) {
       result =
-          prev_planner_hook(parse, query_string, cursorOptions, boundParams);
-    else
+#if PG_VERSION_NUM < 190000
+            prev_planner_hook(parse, query_string, cursorOptions, boundParams);
+#else
+            prev_planner_hook(parse, query_string, cursorOptions, boundParams, es);
+#endif
+    } else {
       result =
-          standard_planner(parse, query_string, cursorOptions, boundParams);
+#if PG_VERSION_NUM < 190000
+            standard_planner(parse, query_string, cursorOptions, boundParams);
+#else
+            standard_planner(parse, query_string, cursorOptions, boundParams, es);
+#endif
+    }
   }
 
   return result;
