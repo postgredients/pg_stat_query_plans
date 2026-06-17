@@ -71,9 +71,7 @@
 #if PG_VERSION_NUM >= 160000
 #include "nodes/queryjumble.h"
 #endif
-#if PG_VERSION_NUM < 120000
 #include "access/htup_details.h"
-#endif
 #include "pg_stat_query_plans_common.h"
 #include "pg_stat_query_plans_parser.h"
 #include "pg_stat_query_plans_storage.h"
@@ -82,6 +80,7 @@
 #include "utils/errcodes.h"
 #include "utils/memutils.h"
 #include "utils/timestamp.h"
+#include "utils/tuplestore.h"
 
 PG_MODULE_MAGIC;
 
