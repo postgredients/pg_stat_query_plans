@@ -11,6 +11,9 @@
  */
 #include "postgres.h"
 
+#include "storage/s_lock.h"
+#include "storage/lwlock.h"
+
 #ifndef PGQP_H
 #define PGQP_H
 /* Location of permanent stats file (valid when database is shut down) */
