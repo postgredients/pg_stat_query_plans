@@ -439,20 +439,30 @@ static void pgqp_shmem_startup(void) {
 
   info_queries.keysize = sizeof(pgqpQueryHashKey);
   info_queries.entrysize = sizeof(pgqpEntry);
-  pgqp_queries = ShmemInitHash("pg_stat_query_plans hash", pgqp_max, pgqp_max,
+  pgqp_queries = ShmemInitHash("pg_stat_query_plans hash",
+#if PG_VERSION_NUM < 190000
+		  		pgqp_max,
+#endif
+				pgqp_max,
                                &info_queries, HASH_ELEM | HASH_BLOBS);
 
   pgqp_max_plans = pgqp_max * MEAN_PLANS_PER_QUERY;
   info_plans.keysize = sizeof(pgqpPlanHashKey);
   info_plans.entrysize = sizeof(pgqpPlanEntry);
   pgqp_plans =
-      ShmemInitHash("pg_stat_query_plans_plans hash", pgqp_max_plans,
+      ShmemInitHash("pg_stat_query_plans_plans hash",
+#if PG_VERSION_NUM < 190000
+		    pgqp_max_plans,
+#endif
                     pgqp_max_plans, &info_plans, HASH_ELEM | HASH_BLOBS);
 
   info_texts.keysize = sizeof(pgqpTextStorageKey);
   info_texts.entrysize = sizeof(pgqpTextStorageEntry);
   pgqp_texts = ShmemInitHash(
-      "pg_stat_query_plans texts", pgqp_max_plans*3 + pgqp_max,
+      "pg_stat_query_plans texts",
+ #if PG_VERSION_NUM < 190000
+      pgqp_max_plans*3 + pgqp_max,
+ #endif
       pgqp_max_plans*3 + pgqp_max, &info_texts, HASH_ELEM | HASH_BLOBS);
 
   pgqp_storage = ShmemInitStruct("pg_stat_query_plans storage",
