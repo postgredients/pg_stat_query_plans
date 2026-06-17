@@ -742,7 +742,9 @@ void pgqp_fill_in_constant_lengths(pgqpJumbleState *jstate, const char *query,
   );
 
   /* we don't want to re-emit any escape string warnings */
+#if PG_VERSION_NUM < 190000
   yyextra.escape_string_warning = false;
+#endif
 
   /* Search for each constant, in sequence */
   for (i = 0; i < jstate->clocations_count; i++) {
@@ -949,7 +951,9 @@ void pgqp_fill_in_constant_lengths(JumbleState *jstate, const char *query,
   yyscanner = scanner_init(query, &yyextra, &ScanKeywords, ScanKeywordTokens);
 
   /* we don't want to re-emit any escape string warnings */
+#if PG_VERSION_NUM < 190000
   yyextra.escape_string_warning = false;
+#endif
 
   /* Search for each constant, in sequence */
   for (i = 0; i < jstate->clocations_count; i++) {
