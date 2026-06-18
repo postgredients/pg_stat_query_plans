@@ -22,7 +22,9 @@ void pgqp_store(const char *query,
 				const void *walusage,
 #endif
 				const struct JitInstrumentation *jitusage,
-#if PG_VERSION_NUM >= 140000
+#if PG_VERSION_NUM >= 190000
+				const JumbleState *jstate
+#elif PG_VERSION_NUM >= 140000
 				JumbleState *jstate
 #else
 				pgqpJumbleState *jstate

@@ -825,8 +825,15 @@ int pgqp_comp_location(const void *a, const void *b) {
 }
 
 #else
+
+#if PG_VERSION_NUM >= 190000
+char *pgqp_gen_normquery(const JumbleState *jstate, const char *query, int query_loc,
+                    int *query_len_p) {
+  LocationLen *locs;
+#else
 char *pgqp_gen_normquery(JumbleState *jstate, const char *query, int query_loc,
                     int *query_len_p) {
+#endif
   char *norm_query;
   int query_len = *query_len_p;
   int i, norm_query_buflen, /* Space allowed for norm_query */
@@ -840,7 +847,11 @@ char *pgqp_gen_normquery(JumbleState *jstate, const char *query, int query_loc,
    * Get constants' lengths (core system only gives us locations).  Note
    * this also ensures the items are sorted by location.
    */
+#if PG_VERSION_NUM >= 190000
+  locs = ComputeConstantLengths(jstate, query, query_loc);
+#else
   pgqp_fill_in_constant_lengths(jstate, query, query_loc);
+#endif
 
   /*
    * Allow for $n symbols to be longer than the constants they replace.
@@ -858,11 +869,19 @@ char *pgqp_gen_normquery(JumbleState *jstate, const char *query, int query_loc,
     int off,     /* Offset from start for cur tok */
         tok_len; /* Length (in bytes) of that tok */
 
+#if PG_VERSION_NUM >= 190000
+    off = locs[i].location;
+#else
     off = jstate->clocations[i].location;
+#endif
     /* Adjust recorded location if we're dealing with partial string */
     off -= query_loc;
 
+#if PG_VERSION_NUM >= 190000
+    tok_len = locs[i].length;
+#else
     tok_len = jstate->clocations[i].length;
+#endif
 
     if (tok_len < 0)
       continue; /* ignore any duplicates */
@@ -884,6 +903,11 @@ char *pgqp_gen_normquery(JumbleState *jstate, const char *query, int query_loc,
     last_tok_len = tok_len;
   }
 
+#if PG_VERSION_NUM >= 190000
+  if (locs)
+    pfree(locs);
+#endif
+
   /*
    * We've copied up until the last ignorable constant.  Copy over the
    * remaining bytes of the original query string.
@@ -901,6 +925,7 @@ char *pgqp_gen_normquery(JumbleState *jstate, const char *query, int query_loc,
   return norm_query;
 };
 
+#if PG_VERSION_NUM < 190000
 /*
  * Given a valid SQL string and an array of constant-location records,
  * fill in the textual lengths of those constants.
@@ -951,9 +976,7 @@ void pgqp_fill_in_constant_lengths(JumbleState *jstate, const char *query,
   yyscanner = scanner_init(query, &yyextra, &ScanKeywords, ScanKeywordTokens);
 
   /* we don't want to re-emit any escape string warnings */
-#if PG_VERSION_NUM < 190000
   yyextra.escape_string_warning = false;
-#endif
 
   /* Search for each constant, in sequence */
   for (i = 0; i < jstate->clocations_count; i++) {
@@ -1032,4 +1055,5 @@ int pgqp_comp_location(const void *a, const void *b) {
   else
     return 0;
 }
+#endif
 #endif
