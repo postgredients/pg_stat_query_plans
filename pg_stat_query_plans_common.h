@@ -295,6 +295,8 @@ extern int	pgqp_track;				/* tracking level */
 extern bool pgqp_track_utility; 	/* whether to track utility commands */
 extern bool pgqp_track_planning;	/* whether to track planning duration */
 extern bool pgqp_track_plans;		/* track execution plans or not */
+extern bool pgqp_normalize_plans;	/* Normalize plans so pans differ in constans
+									   have the same planId */
 extern bool pgqp_collapse_plans;	/* collapse plans differ in constants in one */
 extern int  pgqp_encoding;			/* compress stored texts */
 extern int  example_plan_format;	/* Plan representation style */

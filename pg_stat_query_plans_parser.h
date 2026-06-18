@@ -50,6 +50,9 @@ char *pgqp_gen_normquery(pgqpJumbleState *jstate, const char *query,
 void pgqp_fill_in_constant_lengths(pgqpJumbleState *jstate, const char *query,
 							  int query_loc);
 
+#elif PG_VERSION_NUM >= 190000
+char *pgqp_gen_normquery(const JumbleState *jstate, const char *query,
+					int query_loc, int *query_len_p);
 #else
 char *pgqp_gen_normquery(JumbleState *jstate, const char *query,
 					int query_loc, int *query_len_p);

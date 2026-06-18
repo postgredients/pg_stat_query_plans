@@ -169,7 +169,10 @@ void _PG_fini(void);
 static void pgqp_shmem_request(void);
 #endif
 static void pgqp_shmem_startup(void);
-#if PG_VERSION_NUM >= 140000
+#if PG_VERSION_NUM >= 190000
+static void pgqp_post_parse_analyze(ParseState *pstate, Query *query,
+                                    const JumbleState *jstate);
+#elif PG_VERSION_NUM >= 140000
 static void pgqp_post_parse_analyze(ParseState *pstate, Query *query,
                                     JumbleState *jstate);
 #else
@@ -485,7 +488,9 @@ static void pgqp_shmem_startup(void) {
  * Post-parse-analysis hook: mark query with a queryId
  */
 static void
-#if PG_VERSION_NUM >= 140000
+#if PG_VERSION_NUM >= 190000
+pgqp_post_parse_analyze(ParseState *pstate, Query *query, const JumbleState *jstate)
+#elif PG_VERSION_NUM >= 140000
 pgqp_post_parse_analyze(ParseState *pstate, Query *query, JumbleState *jstate)
 #else
 pgqp_post_parse_analyze(ParseState *pstate, Query *query)
@@ -691,12 +696,16 @@ static void pgqp_ExecutorStart(QueryDesc *queryDesc, int eflags) {
      * space is allocated in the per-query context so it will go away at
      * ExecutorEnd.
      */
+#if PG_VERSION_NUM >= 190000
+    if (queryDesc->query_instr == NULL) {
+#else
     if (queryDesc->totaltime == NULL) {
+#endif
       MemoryContext oldcxt;
 
       oldcxt = MemoryContextSwitchTo(queryDesc->estate->es_query_cxt);
 #if PG_VERSION_NUM >= 190000
-      queryDesc->totaltime = InstrAlloc(INSTRUMENT_ALL);
+      queryDesc->query_instr = InstrAlloc(INSTRUMENT_ALL);
 #elif PG_VERSION_NUM >= 140000
       queryDesc->totaltime = InstrAlloc(1, INSTRUMENT_ALL, false);
 #else
@@ -779,13 +788,19 @@ static void pgqp_ExecutorEnd(QueryDesc *queryDesc) {
   MemoryContext myctx;
   MemoryContext oldctx;
 
+#if PG_VERSION_NUM >= 190000
+  if (queryId != invalid_id && queryDesc->query_instr &&
+#else
   if (queryId != invalid_id && queryDesc->totaltime &&
+#endif
       pgqp_enabled(pgqp_exec_nested_level)) {
     /*
      * Make sure stats accumulation is done.  (Note: it's okay if several
      * levels of hook all do this.)
      */
+#if PG_VERSION_NUM < 190000
     InstrEndLoop(queryDesc->totaltime);
+#endif
 
     /*
      * Create new memory context to store intermediate data
@@ -808,9 +823,19 @@ static void pgqp_ExecutorEnd(QueryDesc *queryDesc) {
     pgqp_store(
         queryDesc->sourceText, planId, queryId, queryDesc,
         queryDesc->plannedstmt->stmt_location, queryDesc->plannedstmt->stmt_len,
+#if PG_VERSION_NUM >= 190000
+        PGQP_EXEC, INSTR_TIME_GET_MICROSEC(queryDesc->query_instr->total),
+#else
         PGQP_EXEC, queryDesc->totaltime->total * 1000.0, /* convert to msec */
-        queryDesc->estate->es_processed, &queryDesc->totaltime->bufusage,
-#if PG_VERSION_NUM >= 130000
+#endif
+#if PG_VERSION_NUM >= 190000
+      queryDesc->estate->es_processed, &queryDesc->query_instr->bufusage,
+#else
+      queryDesc->estate->es_processed, &queryDesc->totaltime->bufusage,
+#endif
+#if PG_VERSION_NUM >= 190000
+      &queryDesc->query_instr->walusage,
+#elif PG_VERSION_NUM >= 130000
         &queryDesc->totaltime->walusage,
 #else
         NULL,
@@ -1455,7 +1480,7 @@ static void pg_stat_query_plans_plan_internal(FunctionCallInfo fcinfo,
 
     /* Don't show anything if not have rights */
     if (!is_allowed_role && entry->key.userid != userid) {
-      elog(DEBUG1, "Do not have rights to view %lu", entry->key.queryid);
+      elog(DEBUG1, "Do not have rights to view %llu", entry->key.queryid);
       // continue;
     }
 
@@ -1626,7 +1651,7 @@ static void pg_stat_query_plans_stat_internal(FunctionCallInfo fcinfo,
 
     /* Don't show anything if not have rights */
     if (!is_allowed_role && entry->key.userid != userid) {
-      elog(DEBUG1, "Do not have rights to view %lu", entry->key.queryid);
+      elog(DEBUG1, "Do not have rights to view %llu", entry->key.queryid);
       continue;
     }
 
