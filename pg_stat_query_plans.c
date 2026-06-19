@@ -113,7 +113,10 @@ const struct config_enum_entry plan_formats[] = {
 
 const struct config_enum_entry text_encodings[] = {
     {"plaintext", PGQP_PLAINTEXT, false},
-    {"pglz", PGQP_PGLZ, false},
+    {"pglz",      PGQP_PGLZ,      false},
+#ifdef USE_LZ4
+    {"lz4",       PGQP_LZ4,       false},
+#endif
     {NULL, 0, false}};
 
 /*---- Local vriables ----*/

@@ -176,7 +176,10 @@ typedef enum pgqpTextsKind
 typedef enum pgqpTextsEnc
 {
 	PGQP_PLAINTEXT = 0,   /* Stored item as text */
-	PGQP_PGLZ = 1		  /* pg_compress-ed*/
+	PGQP_PGLZ = 1,		  /* pg_compress-ed */
+#ifdef USE_LZ4
+	PGQP_LZ4 = 2		  /* lz4-compressed */
+#endif
 } pgqpTextsEnc;
 
 /*
