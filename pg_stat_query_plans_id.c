@@ -74,24 +74,31 @@ static int16 primeNumbers[nNumbers] = {1, 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31
 	7417, 7433, 7451, 7457, 7459, 7477, 7481, 7487, 7489, 7499, 7507, 7517, 7523, 7529, 7537, 7541, 7547, 7549, 7559,
 	7561, 7573, 7577, 7583, 7589, 7591, 7603, 7607, 7621, 7639, 7643, 7649, 7669, 7673, 7681, 7687, 7691, 7699, 7703,
 	7717, 7723, 7727, 7741, 7753, 7757, 7759, 7789, 7793, 7817, 7823, 7829, 7841, 7853, 7867, 7873, 7877, 7879, 7883,
-	7901, 7907, 7919};
+7901, 7907, 7919};
 
 static uint64 hashNode(PlanState *planstate, ExplainState *es, uint64 level);
 
-static uint64 hashUInt64(uint64 id, uint64 level) {
-	uint64 multiplier = level % nNumbers;
+static uint64
+hashUInt64(uint64 id, uint64 level)
+{
+	uint64		multiplier = level % nNumbers;
+
 	return id * primeNumbers[multiplier];
 }
 
-static uint64 hashString(const char *str, uint64 level) {
-        if (str == NULL)
-                return 0;
-        return (uint64) hash_any_extended((const unsigned char *) str, strlen(str), level);
+static uint64
+hashString(const char *str, uint64 level)
+{
+	if (str == NULL)
+		return 0;
+	return (uint64) hash_any_extended((const unsigned char *) str, strlen(str), level);
 }
 
-static uint64 hashTargetRel(Plan *plan, Index rti, ExplainState *es, uint64 level) {
+static uint64
+hashTargetRel(Plan *plan, Index rti, ExplainState *es, uint64 level)
+{
 	RangeTblEntry *rte;
-	uint64 planId = 0;
+	uint64		planId = 0;
 
 	rte = rt_fetch(rti, es->rtable);
 
@@ -123,10 +130,12 @@ static uint64 hashTargetRel(Plan *plan, Index rti, ExplainState *es, uint64 leve
 				if (list_length(fscan->functions) == 1)
 				{
 					RangeTblFunction *rtfunc = (RangeTblFunction *) linitial(fscan->functions);
+
 					if (IsA(rtfunc->funcexpr, FuncExpr))
 					{
 						FuncExpr   *funcexpr = (FuncExpr *) rtfunc->funcexpr;
 						Oid			funcid = funcexpr->funcid;
+
 						planId += hashUInt64(funcid, level);
 					}
 				}
@@ -157,80 +166,93 @@ static uint64 hashTargetRel(Plan *plan, Index rti, ExplainState *es, uint64 leve
 }
 
 
-static uint64 hashScanTarget(Scan *plan, ExplainState *es, uint64 level) {
-   return hashTargetRel((Plan *) plan, plan->scanrelid, es, level);
+static uint64
+hashScanTarget(Scan *plan, ExplainState *es, uint64 level)
+{
+	return hashTargetRel((Plan *) plan, plan->scanrelid, es, level);
 }
 
-static uint64 hashModifyTarget(ModifyTable *plan, ExplainState *es, uint64 level) {
-   return hashTargetRel((Plan *) plan, plan->nominalRelation, es, level);
+static uint64
+hashModifyTarget(ModifyTable *plan, ExplainState *es, uint64 level)
+{
+	return hashTargetRel((Plan *) plan, plan->nominalRelation, es, level);
 }
 
-static uint64 hashIndexScanDetails(Oid indexid, ScanDirection indexorderdir,
-						ExplainState *es, uint64 level) {
-    
-		uint64 planId = hashUInt64(indexid, level);
-		planId += hashUInt64(indexorderdir, level + 1);
-		return planId;
+static uint64
+hashIndexScanDetails(Oid indexid, ScanDirection indexorderdir,
+					 ExplainState *es, uint64 level)
+{
+
+	uint64		planId = hashUInt64(indexid, level);
+
+	planId += hashUInt64(indexorderdir, level + 1);
+	return planId;
 }
 
-static uint64 hashSubPlans(List *plans, ExplainState *es, uint64 level)
+static uint64
+hashSubPlans(List *plans, ExplainState *es, uint64 level)
 {
 	ListCell   *lst;
-	uint64 planId = 0;
-	uint64 index = 2;
+	uint64		planId = 0;
+	uint64		index = 2;
 
 	foreach(lst, plans)
 	{
 		SubPlanState *sps = (SubPlanState *) lfirst(lst);
 
 		/*
-		 * we do not care about multiple SubPlan nodes referencing the same physical
-		 * subplan (same plan_id, which is its index in PlannedStmt.subplans).
+		 * we do not care about multiple SubPlan nodes referencing the same
+		 * physical subplan (same plan_id, which is its index in
+		 * PlannedStmt.subplans).
 		 */
 
 		planId += hashNode(sps->planstate, es, level + index);
-		index ++;
+		index++;
 	}
 	return planId;
 }
 
-static uint64 hashMemberNodes(PlanState **planstates, int nplans,
-				   ExplainState *es, uint64 level)
+static uint64
+hashMemberNodes(PlanState **planstates, int nplans,
+				ExplainState *es, uint64 level)
 {
 	int			j;
-	uint64 planId = 0;
+	uint64		planId = 0;
 
 	for (j = 0; j < nplans; j++)
 		planId += hashNode(planstates[j], es, level + j);
-	
-	return planId;				
+
+	return planId;
 }
 
 static uint64
 hashCustomChildren(CustomScanState *css, ExplainState *es, uint64 level)
 {
 	ListCell   *cell;
-	uint64 planId = 0;
-	uint64 index = 2;
+	uint64		planId = 0;
+	uint64		index = 2;
 
-	foreach(cell, css->custom_ps) {
+	foreach(cell, css->custom_ps)
+	{
 		planId += hashNode((PlanState *) lfirst(cell), es, level + index);
-		index ++;
-	}	
+		index++;
+	}
 
-	return planId;	
+	return planId;
 }
 
 
-uint64 hashNode(PlanState *planstate, ExplainState *es, uint64 level) {
+uint64
+hashNode(PlanState *planstate, ExplainState *es, uint64 level)
+{
 	Plan	   *plan;
-	uint64     planId = 0;
+	uint64		planId = 0;
 	const char *custom_name = NULL;
 
-    if (planstate == NULL)
+	if (planstate == NULL)
 		return 0;
 
-    plan = planstate->plan;   
+	plan = planstate->plan;
 
 	planId += hashUInt64(nodeTag(plan), 2);
 
@@ -249,29 +271,29 @@ uint64 hashNode(PlanState *planstate, ExplainState *es, uint64 level) {
 		case T_ValuesScan:
 		case T_CteScan:
 		case T_WorkTableScan:
-		    planId += hashScanTarget((Scan *) plan, es, 3);
+			planId += hashScanTarget((Scan *) plan, es, 3);
 			break;
 
 		case T_Result:
 		case T_ProjectSet:
-        case T_Append:
-        case T_MergeAppend:
-        case T_RecursiveUnion:
-        case T_BitmapAnd:
-        case T_BitmapOr:
-        case T_Gather:
-        case T_GatherMerge:
-        case T_NamedTuplestoreScan:
-        case T_Material:
+		case T_Append:
+		case T_MergeAppend:
+		case T_RecursiveUnion:
+		case T_BitmapAnd:
+		case T_BitmapOr:
+		case T_Gather:
+		case T_GatherMerge:
+		case T_NamedTuplestoreScan:
+		case T_Material:
 #if PG_VERSION_NUM >= 140000
-        case T_Memoize:
+		case T_Memoize:
 #endif
-        case T_Sort:
-        case T_IncrementalSort:
-        case T_Group:
-        case T_WindowAgg:
-        case T_Unique:
-        case T_LockRows:
+		case T_Sort:
+		case T_IncrementalSort:
+		case T_Group:
+		case T_WindowAgg:
+		case T_Unique:
+		case T_LockRows:
 		case T_Limit:
 		case T_Hash:
 			break;
@@ -289,8 +311,8 @@ uint64 hashNode(PlanState *planstate, ExplainState *es, uint64 level) {
 				IndexScan  *indexscan = (IndexScan *) plan;
 
 				hashIndexScanDetails(indexscan->indexid,
-										indexscan->indexorderdir,
-										es, 3);
+									 indexscan->indexorderdir,
+									 es, 3);
 				hashScanTarget((Scan *) indexscan, es, 5);
 			}
 			break;
@@ -299,43 +321,45 @@ uint64 hashNode(PlanState *planstate, ExplainState *es, uint64 level) {
 				IndexOnlyScan *indexonlyscan = (IndexOnlyScan *) plan;
 
 				hashIndexScanDetails(indexonlyscan->indexid,
-										indexonlyscan->indexorderdir,
-										es, 3);
+									 indexonlyscan->indexorderdir,
+									 es, 3);
 				hashScanTarget((Scan *) indexonlyscan, es, 5);
 			}
 			break;
 		case T_BitmapIndexScan:
 			{
 				BitmapIndexScan *bitmapindexscan = (BitmapIndexScan *) plan;
+
 				planId += hashUInt64(bitmapindexscan->indexid, 3);
 			}
-			break;	
+			break;
 		case T_ModifyTable:
 			{
-            	planId += hashUInt64(((ModifyTable *) plan)->operation, 3);
+				planId += hashUInt64(((ModifyTable *) plan)->operation, 3);
 				planId += hashModifyTarget((ModifyTable *) plan, es, 4);
 			}
 			break;
 		case T_ForeignScan:
 			{
-            	planId += hashUInt64(((ForeignScan *) plan)->operation, 3);
+				planId += hashUInt64(((ForeignScan *) plan)->operation, 3);
 				if (((Scan *) plan)->scanrelid > 0)
 					planId += hashScanTarget((Scan *) plan, es, 3);
-			}		
+			}
 			break;
 		case T_CustomScan:
 			{
-		    	custom_name = ((CustomScanMethods *)((CustomScan *) plan)->methods)->CustomName;
+				custom_name = ((CustomScanMethods *) ((CustomScan *) plan)->methods)->CustomName;
 				if (custom_name)
-            		planId += hashString(custom_name, 3);
+					planId += hashString(custom_name, 3);
 				if (((Scan *) plan)->scanrelid > 0)
 					planId += hashScanTarget((Scan *) plan, es, 3);
-			}	
+			}
 			break;
 		case T_Agg:
 			{
-                Agg		   *agg = (Agg *) plan;
-                planId += hashUInt64(agg->aggstrategy , 3);
+				Agg		   *agg = (Agg *) plan;
+
+				planId += hashUInt64(agg->aggstrategy, 3);
 				if (DO_AGGSPLIT_SKIPFINAL(agg->aggsplit))
 				{
 					planId += hashUInt64(1, 4);
@@ -348,15 +372,15 @@ uint64 hashNode(PlanState *planstate, ExplainState *es, uint64 level) {
 			break;
 		case T_SetOp:
 			{
-            	planId += hashUInt64(((SetOp *) plan)->strategy, 3);
+				planId += hashUInt64(((SetOp *) plan)->strategy, 3);
 				planId += hashUInt64(((SetOp *) plan)->cmd, 4);
 			}
 			break;
-        default:
-            break;
+		default:
+			break;
 	}
-   
-   /* initPlan-s */
+
+	/* initPlan-s */
 	if (planstate->initPlan)
 		planId += hashSubPlans(planstate->initPlan, es, level + 1);
 
@@ -373,22 +397,22 @@ uint64 hashNode(PlanState *planstate, ExplainState *es, uint64 level) {
 	{
 		case T_Append:
 			planId += hashMemberNodes(((AppendState *) planstate)->appendplans,
-							   ((AppendState *) planstate)->as_nplans, es, level + 4);
+									  ((AppendState *) planstate)->as_nplans, es, level + 4);
 			break;
 		case T_MergeAppend:
 			planId += hashMemberNodes(((MergeAppendState *) planstate)->mergeplans,
-							   ((MergeAppendState *) planstate)->ms_nplans,
-							   es, level + 4);
+									  ((MergeAppendState *) planstate)->ms_nplans,
+									  es, level + 4);
 			break;
 		case T_BitmapAnd:
 			planId += hashMemberNodes(((BitmapAndState *) planstate)->bitmapplans,
-							   ((BitmapAndState *) planstate)->nplans,
-							   es, level + 4);
+									  ((BitmapAndState *) planstate)->nplans,
+									  es, level + 4);
 			break;
 		case T_BitmapOr:
 			planId += hashMemberNodes(((BitmapOrState *) planstate)->bitmapplans,
-							   ((BitmapOrState *) planstate)->nplans,
-							   es, level + 4);
+									  ((BitmapOrState *) planstate)->nplans,
+									  es, level + 4);
 			break;
 		case T_SubqueryScan:
 			planId += hashNode(((SubqueryScanState *) planstate)->subplan, es, level + 4);
@@ -403,26 +427,28 @@ uint64 hashNode(PlanState *planstate, ExplainState *es, uint64 level) {
 	/* subPlan-s */
 	if (planstate->subPlan)
 		planId += hashSubPlans(planstate->subPlan, es, level + 5);
-  
-    return hashUInt64(planId, level);
+
+	return hashUInt64(planId, level);
 }
 
-uint64 getPlanId(QueryDesc *queryDesc) {
+uint64
+getPlanId(QueryDesc *queryDesc)
+{
 	ExplainState *es;
-	uint64 id;
-    MemoryContext oldcxt;
+	uint64		id;
+	MemoryContext oldcxt;
 
-    if (queryDesc == NULL || queryDesc->plannedstmt == NULL)
+	if (queryDesc == NULL || queryDesc->plannedstmt == NULL)
 		return 0;
-  
-    oldcxt = MemoryContextSwitchTo(queryDesc->estate->es_query_cxt); 
-    es = NewExplainState();
-    es->pstmt = queryDesc->plannedstmt;
-    es->rtable = queryDesc->plannedstmt->rtable;
-    id = hashNode(queryDesc->planstate, es, 9);
-    if (id == invalid_id)
-        id = any_id;
-    resetStringInfo(es->str);
-    MemoryContextSwitchTo(oldcxt);
-    return id;
+
+	oldcxt = MemoryContextSwitchTo(queryDesc->estate->es_query_cxt);
+	es = NewExplainState();
+	es->pstmt = queryDesc->plannedstmt;
+	es->rtable = queryDesc->plannedstmt->rtable;
+	id = hashNode(queryDesc->planstate, es, 9);
+	if (id == invalid_id)
+		id = any_id;
+	resetStringInfo(es->str);
+	MemoryContextSwitchTo(oldcxt);
+	return id;
 }

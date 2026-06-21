@@ -13,17 +13,17 @@
 #ifndef PGQP_A
 #define PGQP_A
 
-# ifndef PGQP_ASSERT_CHECKING
+#ifndef PGQP_ASSERT_CHECKING
 
 #define pgqpAssert(condition)       ((void)true)
 #define pgqpAssertMacro(condition)  ((void)true)
 
-# else
+#else
 
 #include <assert.h>
 #define pgqpAssert(p) assert(p)
 #define pgqpAssertMacro(p)  ((void) assert(p))
 
-# endif
+#endif
 
 #endif
