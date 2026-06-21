@@ -22,8 +22,10 @@
 #define PGQP_ASSUMED_MEDIAN_INIT	(10.0)	/* initial assumed median usage */
 #define PGQP_USAGE_DECREASE_FACTOR	(0.99)	/* decreased every entry_dealloc */
 #define PGQP_STICKY_DECREASE_FACTOR	(0.50)	/* factor for sticky entries */
-#define PGQP_FREE_PERCENT		10		/* % of free entries in pgqp_hash after deallocation */
-#define PGQP_ID_SEEDVALUE		42		/* seed value for calculate planid hash value */
+#define PGQP_FREE_PERCENT		10	/* % of free entries in pgqp_hash after
+									 * deallocation */
+#define PGQP_ID_SEEDVALUE		42	/* seed value for calculate planid hash
+									 * value */
 #define PGQP_IS_STICKY(c)	((c->calls[PGQP_PLAN] + c->calls[PGQP_EXEC]) == 0)
 
 /*
@@ -49,14 +51,14 @@ typedef enum pgqpStoreKind
 
 	/*
 	 * PGQP_PLAN and PGQP_EXEC must be respectively 0 and 1 as they're used to
-	 * reference the underlying values in the arrays in the pgqpCounters struct,
-	 * and this order is required in pg_stat_query_plans_internal().
+	 * reference the underlying values in the arrays in the pgqpCounters
+	 * struct, and this order is required in pg_stat_query_plans_internal().
 	 */
 	PGQP_PLAN = 0,
 	PGQP_EXEC,
 
 	PGQP_NUMKIND				/* Must be last value of this enum */
-} pgqpStoreKind;
+}			pgqpStoreKind;
 
 /*
  * Hashtable key that defines the identity of a hashtable entry.  We separate
@@ -64,20 +66,20 @@ typedef enum pgqpStoreKind
  */
 typedef struct pgqpQueryHashKey
 {
-	Oid		    userid;			/* user OID */
-	Oid		    dbid;			/* database OID */
+	Oid			userid;			/* user OID */
+	Oid			dbid;			/* database OID */
 	uint64		queryid;		/* query identifier */
 	bool		toplevel;		/* query executed at top level */
-} pgqpQueryHashKey;
+}			pgqpQueryHashKey;
 
 typedef struct pgqpPlanHashKey
 {
-	Oid         userid;         /* user OID */
-	Oid         dbid;           /* database OID */
-	uint64      queryid;        /* query identifier */
-	bool        toplevel;       /* query executed at top level */
-	uint64      planid;         /* execution plan identifier */
-} pgqpPlanHashKey;
+	Oid			userid;			/* user OID */
+	Oid			dbid;			/* database OID */
+	uint64		queryid;		/* query identifier */
+	bool		toplevel;		/* query executed at top level */
+	uint64		planid;			/* execution plan identifier */
+}			pgqpPlanHashKey;
 
 /*
  * The actual stats counters kept within pgqpEntry.
@@ -126,48 +128,52 @@ typedef struct pgqpCounters
 	int64		jit_emission_count; /* number of times emission time has been
 									 * > 0 */
 	double		jit_emission_time;	/* total time to emit jit code */
-} pgqpCounters;
+}			pgqpCounters;
 
 /*
  * Stats specific for query execution plans
  */
 typedef struct pgqpPlanCounters
 {
-	Cost 		startup_cost;	/* cost before the first row can be returned */
-	Cost 		total_cost;		/* cost to return all the rows */
-	#if PG_VERSION_NUM >= 150000
+	Cost		startup_cost;	/* cost before the first row can be returned */
+	Cost		total_cost;		/* cost to return all the rows */
+#if PG_VERSION_NUM >= 150000
 	Cardinality plan_rows;		/* estimated count of returned rows */
-	#else
-	double		plan_rows;      /* estimated count of returned rows */
-	#endif
-	int 		plan_width;		/* estimated width of each row */
-} pgqpPlanCounters;
+#else
+	double		plan_rows;		/* estimated count of returned rows */
+#endif
+	int			plan_width;		/* estimated width of each row */
+}			pgqpPlanCounters;
 
 /*
  * Global statistics for pg_stat_query_plans
  */
 typedef struct pgqpGlobalStats
 {
-	int64		dealloc;			/* # of times entries were deallocated */
-	TimestampTz stats_reset;		/* timestamp with all stats reset */
-	int64		queries_size;		/* total size of queries */
-	int64       compressed_queries_size; /* amount of memory consumed by queries */
-	int64		plans_size;			/* total size of execution plans */
-	int64       compressed_plans_size;   /* amount of memory consumed by query execution plans */
-	int64		queries_wiped_out;	/* the number of queries removed from hashtable  */
-	int64		plans_wiped_out;	/* the number of plans removed from hashtable  */
+	int64		dealloc;		/* # of times entries were deallocated */
+	TimestampTz stats_reset;	/* timestamp with all stats reset */
+	int64		queries_size;	/* total size of queries */
+	int64		compressed_queries_size;	/* amount of memory consumed by
+											 * queries */
+	int64		plans_size;		/* total size of execution plans */
+	int64		compressed_plans_size;	/* amount of memory consumed by query
+										 * execution plans */
+	int64		queries_wiped_out;	/* the number of queries removed from
+									 * hashtable  */
+	int64		plans_wiped_out;	/* the number of plans removed from
+									 * hashtable  */
 	int64		dealloc_time_ms;	/* time spent in deallocating items */
-	int64		gc_time_ms;			/* time spent in garbage collection texts */
-} pgqpGlobalStats;
+	int64		gc_time_ms;		/* time spent in garbage collection texts */
+}			pgqpGlobalStats;
 
 /*
  * For mark stored texts which typr it is
  */
 typedef enum pgqpTextsKind
 {
-	PGQP_SQLTEXT = 0,	/* Stored item in query text */
-	PGQP_SQLPLAN = 1,	/* Stored item is example execution plan */
-	PGQP_GENSQLPLAN = 2 /* Stored item is normalized execution plan */
+	PGQP_SQLTEXT = 0,			/* Stored item in query text */
+	PGQP_SQLPLAN = 1,			/* Stored item is example execution plan */
+	PGQP_GENSQLPLAN = 2			/* Stored item is normalized execution plan */
 } pgqpTextsKind;
 
 /*
@@ -175,8 +181,8 @@ typedef enum pgqpTextsKind
  */
 typedef enum pgqpTextsEnc
 {
-	PGQP_PLAINTEXT = 0,   /* Stored item as text */
-	PGQP_PGLZ = 1		  /* pg_compress-ed*/
+	PGQP_PLAINTEXT = 0,			/* Stored item as text */
+	PGQP_PGLZ = 1				/* pg_compress-ed */
 } pgqpTextsEnc;
 
 /*
@@ -184,55 +190,57 @@ typedef enum pgqpTextsEnc
  */
 typedef struct pgqpTextStorageKey
 {
-	pgqpTextsKind	item_mark;		/* Which type of item is it */
-	int64			item_id_low;	/* Unique (among all pgqpTextsKind)
-									   identifier for stored item */
-	int64			item_id_high;	/* For store query plans we need 2 ids */
-} pgqpTextStorageKey;
+	pgqpTextsKind item_mark;	/* Which type of item is it */
+	int64		item_id_low;	/* Unique (among all pgqpTextsKind) identifier
+								 * for stored item */
+	int64		item_id_high;	/* For store query plans we need 2 ids */
+}			pgqpTextStorageKey;
 
 /*
  * Entry for text storage - here we store query texts and explain plans
  */
 typedef struct pgqpTextStorageEntry
 {
-	pgqpTextStorageKey	text_key;		/* hash key of entry */
-	int64				text_offset;	/* text offset in shared memory area */
-	size_t				text_len;		/* text len, including the last 0 */
-	size_t              origin_text_len; /* origin text length */;
-	pgqpTextsEnc		text_encoding;	/* text encoding*/
-	int					usage_count;	/* the number of references to item*/
-} pgqpTextStorageEntry;
+	pgqpTextStorageKey text_key;	/* hash key of entry */
+	int64		text_offset;	/* text offset in shared memory area */
+	size_t		text_len;		/* text len, including the last 0 */
+	size_t		origin_text_len; /* origin text length */ ;
+	pgqpTextsEnc text_encoding; /* text encoding */
+	int			usage_count;	/* the number of references to item */
+}			pgqpTextStorageEntry;
 
 /*
  * Statistics per statement
  */
 typedef struct pgqpEntry
 {
-	pgqpQueryHashKey 		key;			/* hash key of entry - MUST BE FIRST */
-	pgqpCounters				counters;		/* the statistics for this query */
-	pgqpTextStorageEntry*	query_text;     /* Stored query text */
-	int64					generation;		/* initialize from pgqpGlobalStats each time
-											   query added, so newer be the same even if item was deallocated*/
-	int64					plans_count;	/* the number of stored plans for
-											   entry in plan hash table*/
-	slock_t				mutex;				/* protects the counters only */
-} pgqpEntry;
+	pgqpQueryHashKey key;		/* hash key of entry - MUST BE FIRST */
+	pgqpCounters counters;		/* the statistics for this query */
+	pgqpTextStorageEntry *query_text;	/* Stored query text */
+	int64		generation;		/* initialize from pgqpGlobalStats each time
+								 * query added, so newer be the same even if
+								 * item was deallocated */
+	int64		plans_count;	/* the number of stored plans for entry in
+								 * plan hash table */
+	slock_t		mutex;			/* protects the counters only */
+}			pgqpEntry;
 
 /*
  * Statistics per execution plan
  */
 typedef struct pgqpPlanEntry
 {
-	pgqpPlanHashKey     	key;            /* hash key of entry - MUST BE FIRST */
-	pgqpCounters            counters;       /* the statistics for this query */
-	pgqpPlanCounters	plan_counters;	/* Specific for query plan statistic*/
-	pgqpTextStorageEntry*   query_text;     /* Stored example query plan */
-	pgqpTextStorageEntry*  	example_plan; 	/* Stored example plan item */
-	pgqpTextStorageEntry*   gen_plan;   	/* Stored normalized plan item */
-	int64               	generation;     /* initialize from pgqpGlobalStats each time
-											   query added, so newer be the same even if item was deallocated*/
-	slock_t             	mutex;          /* protects the counters only */
-} pgqpPlanEntry;
+	pgqpPlanHashKey key;		/* hash key of entry - MUST BE FIRST */
+	pgqpCounters counters;		/* the statistics for this query */
+	pgqpPlanCounters plan_counters; /* Specific for query plan statistic */
+	pgqpTextStorageEntry *query_text;	/* Stored example query plan */
+	pgqpTextStorageEntry *example_plan; /* Stored example plan item */
+	pgqpTextStorageEntry *gen_plan; /* Stored normalized plan item */
+	int64		generation;		/* initialize from pgqpGlobalStats each time
+								 * query added, so newer be the same even if
+								 * item was deallocated */
+	slock_t		mutex;			/* protects the counters only */
+}			pgqpPlanEntry;
 
 
 /*
@@ -245,21 +253,21 @@ typedef struct pgqpSharedState
 	double		cur_median_usage;	/* current median usage in hashtable */
 	slock_t		mutex;			/* protects following fields only: */
 	int64		gc_count;		/* query file garbage collection cycle count */
-	int64       generation;     /* increases with each qeury added to table */
+	int64		generation;		/* increases with each qeury added to table */
 	int64		storage_offset; /* current offset in storage */
 	pgqpGlobalStats stats;		/* global statistics for pgqp */
-} pgqpSharedState;
+}			pgqpSharedState;
 
 /* Global variables */
 
 /* Current nesting depth of ExecutorRun+ProcessUtility calls */
-extern int pgqp_exec_nested_level;
+extern int	pgqp_exec_nested_level;
 
 /* Current nesting depth of planner calls */
-extern int pgqp_plan_nested_level;
+extern int	pgqp_plan_nested_level;
 
 /* Links to shared memory state */
-extern pgqpSharedState *pgqp;
+extern pgqpSharedState * pgqp;
 extern HTAB *pgqp_queries;
 extern HTAB *pgqp_plans;
 extern HTAB *pgqp_texts;
@@ -283,23 +291,25 @@ extern const struct config_enum_entry plan_formats[];
 
 extern const struct config_enum_entry text_encodings[];
 
-extern const int MEAN_PLANS_PER_QUERY; /* how many plans per query we are going
-										  to store */
+extern const int MEAN_PLANS_PER_QUERY;	/* how many plans per query we are
+										 * going to store */
 
-extern int	pgqp_max;				/* max # statements to track */
-extern int  pgqp_max_plans;			/* max # execution plans to track */
-extern int 	pgqp_storage_memory; 	/* memory used to store plan and query texts */
-extern int  pgqp_max_query_len;		/* maximum query text length */
-extern int	pgqp_max_plan_len;	    /* maximum execution plan text length */
-extern int	pgqp_track;				/* tracking level */
-extern bool pgqp_track_utility; 	/* whether to track utility commands */
+extern int	pgqp_max;			/* max # statements to track */
+extern int	pgqp_max_plans;		/* max # execution plans to track */
+extern int	pgqp_storage_memory;	/* memory used to store plan and query
+									 * texts */
+extern int	pgqp_max_query_len; /* maximum query text length */
+extern int	pgqp_max_plan_len;	/* maximum execution plan text length */
+extern int	pgqp_track;			/* tracking level */
+extern bool pgqp_track_utility; /* whether to track utility commands */
 extern bool pgqp_track_planning;	/* whether to track planning duration */
-extern bool pgqp_track_plans;		/* track execution plans or not */
-extern bool pgqp_normalize_plans;	/* Normalize plans so pans differ in constans
-									   have the same planId */
-extern bool pgqp_collapse_plans;	/* collapse plans differ in constants in one */
-extern int  pgqp_encoding;			/* compress stored texts */
-extern int  example_plan_format;	/* Plan representation style */
+extern bool pgqp_track_plans;	/* track execution plans or not */
+extern bool pgqp_normalize_plans;	/* Normalize plans so pans differ in
+									 * constans have the same planId */
+extern bool pgqp_collapse_plans;	/* collapse plans differ in constants in
+									 * one */
+extern int	pgqp_encoding;		/* compress stored texts */
+extern int	example_plan_format;	/* Plan representation style */
 extern bool example_log_verbose;	/* Set VERBOSE for EXPLAIN on logging */
 extern bool example_log_triggers;	/* Log trigger trace in EXPLAIN */
 
@@ -319,6 +329,9 @@ extern bool example_log_triggers;	/* Log trigger trace in EXPLAIN */
 
 #endif
 
-extern const uint64 invalid_id;      /* identifier is not set */
-extern const uint64 any_id;          /* identifier was set to zero and we re-set it to non-zero value */
-extern const uint64 another_any_id;  /* identifier was set to zero, we re-set it to non-zero value and wan't to distinguish it from any_id */
+extern const uint64 invalid_id; /* identifier is not set */
+extern const uint64 any_id;		/* identifier was set to zero and we re-set it
+								 * to non-zero value */
+extern const uint64 another_any_id; /* identifier was set to zero, we re-set
+									 * it to non-zero value and wan't to
+									 * distinguish it from any_id */
