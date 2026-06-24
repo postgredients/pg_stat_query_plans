@@ -1564,8 +1564,12 @@ pg_stat_query_plans_plan_internal(FunctionCallInfo fcinfo,
 		/* Don't show anything if not have rights */
 		if (!is_allowed_role && entry->key.userid != userid)
 		{
+#if PG_VERSION_NUM < 180000
+			elog(DEBUG1, "Do not have rights to view %lu", entry->key.queryid);
+#else
 			elog(DEBUG1, "Do not have rights to view %llu", entry->key.queryid);
-			/* continue; */
+#endif
+			continue;
 		}
 
 		memset(values, 0, sizeof(values));
@@ -1748,7 +1752,11 @@ pg_stat_query_plans_stat_internal(FunctionCallInfo fcinfo,
 		/* Don't show anything if not have rights */
 		if (!is_allowed_role && entry->key.userid != userid)
 		{
+#if PG_VERSION_NUM < 180000
+			elog(DEBUG1, "Do not have rights to view %lu", entry->key.queryid);
+#else
 			elog(DEBUG1, "Do not have rights to view %llu", entry->key.queryid);
+#endif
 			continue;
 		}
 
