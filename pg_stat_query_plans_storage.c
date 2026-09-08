@@ -301,8 +301,9 @@ pgqp_update_counters(volatile pgqpCounters * counters,
 
 	counters->calls[kind] += 1;
 	counters->total_time[kind] += total_time;
+	counters->minmax_calls[kind] += 1;
 
-	if (counters->calls[kind] == 1)
+	if (counters->minmax_calls[kind] == 1)
 	{
 		counters->min_time[kind] = total_time;
 		counters->max_time[kind] = total_time;
@@ -317,7 +318,7 @@ pgqp_update_counters(volatile pgqpCounters * counters,
 		double		old_mean = counters->mean_time[kind];
 
 		counters->mean_time[kind] +=
-			(total_time - old_mean) / counters->calls[kind];
+			(total_time - old_mean) / counters->minmax_calls[kind];
 		counters->sum_var_time[kind] +=
 			(total_time - old_mean) * (total_time - counters->mean_time[kind]);
 
