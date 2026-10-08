@@ -508,7 +508,7 @@ pgqp_store(const char *query, uint64 planId, uint64 queryId,
 	key.userid = GetUserId();
 	key.dbid = MyDatabaseId;
 	key.queryid = queryId;
-	key.toplevel = (pgqp_exec_nested_level == 0);
+	key.toplevel = (pgqp_nesting_level == 0);
 
 	/* Lookup the hash table entry with shared lock. */
 	LWLockAcquire(pgqp->lock, LW_SHARED);
@@ -588,7 +588,7 @@ pgqp_store(const char *query, uint64 planId, uint64 queryId,
 		plan_key.userid = GetUserId();
 		plan_key.dbid = MyDatabaseId;
 		plan_key.queryid = queryId;
-		plan_key.toplevel = (pgqp_exec_nested_level == 0);
+		plan_key.toplevel = (pgqp_nesting_level == 0);
 		plan_key.planid = planId;
 
 		plan_entry =
