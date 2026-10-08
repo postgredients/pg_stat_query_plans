@@ -92,11 +92,8 @@ PG_FUNCTION_INFO_V1(pg_stat_query_plans_info);
 
 /*---- Global variables ----*/
 
-/* Current nesting depth of ExecutorRun+ProcessUtility calls */
-int			pgqp_exec_nested_level = 0;
-
-/* Current nesting depth of planner calls */
-int			pgqp_plan_nested_level = 0;
+/* Current nesting depth of planner/ExecutorRun/ProcessUtility calls */
+int			pgqp_nesting_level = 0;
 
 const struct config_enum_entry track_options[] = {
 	{"none", PGQP_TRACK_NONE, false},
@@ -521,7 +518,7 @@ pgqp_post_parse_analyze(ParseState *pstate, Query *query)
 
 	/* Safety check... */
 	if (!pgqp || !pgqp_queries || !pgqp_plans || !pgqp_texts ||
-		!pgqp_enabled(pgqp_exec_nested_level))
+		!pgqp_enabled(pgqp_nesting_level))
 		return;
 
 #if PG_VERSION_NUM < 140000
@@ -606,15 +603,8 @@ pgqp_planner(Query *parse, const char *query_string,
 	 * We can't process the query if no query_string is provided, as
 	 * pgqp_store needs it.  We also ignore query without queryid, as it would
 	 * be treated as a utility statement, which may not be the case.
-	 *
-	 * Note that planner_hook can be called from the planner itself, so we
-	 * have a specific nesting level for the planner.  However, utility
-	 * commands containing optimizable statements can also call the planner,
-	 * same for regular DML (for instance for underlying foreign key queries).
-	 * So testing the planner nesting level only is not enough to detect real
-	 * top level planner call.
 	 */
-	if (pgqp_enabled(pgqp_plan_nested_level + pgqp_exec_nested_level) &&
+	if (pgqp_enabled(pgqp_nesting_level) &&
 		pgqp_track_planning && query_string && parse->queryId != invalid_id)
 	{
 		instr_time	start;
@@ -634,7 +624,7 @@ pgqp_planner(Query *parse, const char *query_string,
 		walusage_start = pgWalUsage;
 		INSTR_TIME_SET_CURRENT(start);
 
-		pgqp_plan_nested_level++;
+		pgqp_nesting_level++;
 		PG_TRY();
 		{
 			if (prev_planner_hook)
@@ -658,7 +648,7 @@ pgqp_planner(Query *parse, const char *query_string,
 		}
 		PG_FINALLY();
 		{
-			pgqp_plan_nested_level--;
+			pgqp_nesting_level--;
 		}
 		PG_END_TRY();
 
@@ -679,24 +669,37 @@ pgqp_planner(Query *parse, const char *query_string,
 	}
 	else
 	{
-		if (prev_planner_hook)
+		/*
+		 * Functions evaluated during planning are nested even when we are not
+		 * collecting planning statistics for the containing statement.
+		 */
+		pgqp_nesting_level++;
+		PG_TRY();
 		{
-			result =
+			if (prev_planner_hook)
+			{
+				result =
 #if PG_VERSION_NUM < 190000
-				prev_planner_hook(parse, query_string, cursorOptions, boundParams);
+					prev_planner_hook(parse, query_string, cursorOptions, boundParams);
 #else
-				prev_planner_hook(parse, query_string, cursorOptions, boundParams, es);
+					prev_planner_hook(parse, query_string, cursorOptions, boundParams, es);
 #endif
+			}
+			else
+			{
+				result =
+#if PG_VERSION_NUM < 190000
+					standard_planner(parse, query_string, cursorOptions, boundParams);
+#else
+					standard_planner(parse, query_string, cursorOptions, boundParams, es);
+#endif
+			}
 		}
-		else
+		PG_FINALLY();
 		{
-			result =
-#if PG_VERSION_NUM < 190000
-				standard_planner(parse, query_string, cursorOptions, boundParams);
-#else
-				standard_planner(parse, query_string, cursorOptions, boundParams, es);
-#endif
+			pgqp_nesting_level--;
 		}
+		PG_END_TRY();
 	}
 
 	return result;
@@ -719,7 +722,7 @@ pgqp_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	 * counting of optimizable statements that are directly contained in
 	 * utility statements.
 	 */
-	if (pgqp_enabled(pgqp_exec_nested_level) &&
+	if (pgqp_enabled(pgqp_nesting_level) &&
 		queryDesc->plannedstmt->queryId != invalid_id)
 	{
 		/*
@@ -763,7 +766,7 @@ pgqp_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction,
 				 uint64 count)
 {
 #endif
-	pgqp_exec_nested_level++;
+	pgqp_nesting_level++;
 	PG_TRY();
 	{
 #if PG_VERSION_NUM < 180000
@@ -781,13 +784,13 @@ pgqp_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction,
 #if PG_VERSION_NUM < 130000
 	PG_CATCH();
 	{
-		pgqp_exec_nested_level--;
+		pgqp_nesting_level--;
 		PG_RE_THROW();
 	}
 #else
 	PG_FINALLY();
 	{
-		pgqp_exec_nested_level--;
+		pgqp_nesting_level--;
 	}
 #endif
 	PG_END_TRY();
@@ -799,7 +802,7 @@ pgqp_ExecutorRun(QueryDesc *queryDesc, ScanDirection direction,
 static void
 pgqp_ExecutorFinish(QueryDesc *queryDesc)
 {
-	pgqp_exec_nested_level++;
+	pgqp_nesting_level++;
 	PG_TRY();
 	{
 		if (prev_ExecutorFinish)
@@ -810,13 +813,13 @@ pgqp_ExecutorFinish(QueryDesc *queryDesc)
 #if PG_VERSION_NUM < 130000
 	PG_CATCH();
 	{
-		pgqp_exec_nested_level--;
+		pgqp_nesting_level--;
 		PG_RE_THROW();
 	}
 #else
 	PG_FINALLY();
 	{
-		pgqp_exec_nested_level--;
+		pgqp_nesting_level--;
 	}
 #endif
 	PG_END_TRY();
@@ -838,7 +841,7 @@ pgqp_ExecutorEnd(QueryDesc *queryDesc)
 #else
 	if (queryId != invalid_id && queryDesc->totaltime &&
 #endif
-		pgqp_enabled(pgqp_exec_nested_level))
+		pgqp_enabled(pgqp_nesting_level))
 	{
 		/*
 		 * Make sure stats accumulation is done.  (Note: it's okay if several
@@ -919,7 +922,7 @@ pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	uint64		saved_queryId = pstmt->queryId;
 	int			saved_stmt_location = pstmt->stmt_location;
 	int			saved_stmt_len = pstmt->stmt_len;
-	bool		enabled = pgqp_track_utility && pgqp_enabled(pgqp_exec_nested_level);
+	bool		enabled = pgqp_track_utility && pgqp_enabled(pgqp_nesting_level);
 
 	/*
 	 * Force utility statements to get queryId zero.  We do this even in cases
@@ -967,7 +970,7 @@ pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		walusage_start = pgWalUsage;
 		INSTR_TIME_SET_CURRENT(start);
 
-		pgqp_exec_nested_level++;
+		pgqp_nesting_level++;
 		PG_TRY();
 		{
 			if (prev_ProcessUtility)
@@ -981,7 +984,7 @@ pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		}
 		PG_FINALLY();
 		{
-			pgqp_exec_nested_level--;
+			pgqp_nesting_level--;
 		}
 		PG_END_TRY();
 
@@ -1040,7 +1043,7 @@ pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 			!IsA(parsetree, PrepareStmt);
 
 		if (bump_level)
-			pgqp_exec_nested_level++;
+			pgqp_nesting_level++;
 		PG_TRY();
 		{
 			if (prev_ProcessUtility)
@@ -1055,7 +1058,7 @@ pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		PG_FINALLY();
 		{
 			if (bump_level)
-				pgqp_exec_nested_level--;
+				pgqp_nesting_level--;
 		}
 		PG_END_TRY();
 	}
@@ -1090,7 +1093,7 @@ pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 * that user configured another extension to handle utility statements
 	 * only.
 	 */
-	if (pgqp_enabled(pgqp_exec_nested_level) && pgqp_track_utility)
+	if (pgqp_enabled(pgqp_nesting_level) && pgqp_track_utility)
 		pstmt->queryId = invalid_id;
 
 	/*
@@ -1107,7 +1110,7 @@ pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 *
 	 * Likewise, we don't track execution of DEALLOCATE.
 	 */
-	if (pgqp_track_utility && pgqp_enabled(pgqp_exec_nested_level) &&
+	if (pgqp_track_utility && pgqp_enabled(pgqp_nesting_level) &&
 		PGQP_HANDLED_UTILITY(parsetree))
 	{
 		instr_time	start;
@@ -1122,7 +1125,7 @@ pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		walusage_start = pgWalUsage;
 		INSTR_TIME_SET_CURRENT(start);
 
-		pgqp_exec_nested_level++;
+		pgqp_nesting_level++;
 		PG_TRY();
 		{
 			if (prev_ProcessUtility)
@@ -1134,7 +1137,7 @@ pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		}
 		PG_FINALLY();
 		{
-			pgqp_exec_nested_level--;
+			pgqp_nesting_level--;
 		}
 		PG_END_TRY();
 
@@ -1207,7 +1210,7 @@ pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 	 *
 	 * Likewise, we don't track execution of DEALLOCATE.
 	 */
-	if (pgqp_track_utility && pgqp_enabled(pgqp_exec_nested_level) &&
+	if (pgqp_track_utility && pgqp_enabled(pgqp_nesting_level) &&
 		!IsA(parsetree, ExecuteStmt) && !IsA(parsetree, PrepareStmt) &&
 		!IsA(parsetree, DeallocateStmt))
 	{
@@ -1226,7 +1229,7 @@ pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		walusage_start = pgWalUsage;
 #endif
 		INSTR_TIME_SET_CURRENT(start);
-		pgqp_exec_nested_level++;
+		pgqp_nesting_level++;
 		PG_TRY();
 		{
 			if (prev_ProcessUtility)
@@ -1239,13 +1242,13 @@ pgqp_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 #if PG_VERSION_NUM < 130000
 		PG_CATCH();
 		{
-			pgqp_exec_nested_level--;
+			pgqp_nesting_level--;
 			PG_RE_THROW();
 		}
 #else
 		PG_FINALLY();
 		{
-			pgqp_exec_nested_level--;
+			pgqp_nesting_level--;
 		}
 #endif
 		PG_END_TRY();

@@ -261,11 +261,8 @@ typedef struct pgqpSharedState
 
 /* Global variables */
 
-/* Current nesting depth of ExecutorRun+ProcessUtility calls */
-extern int	pgqp_exec_nested_level;
-
-/* Current nesting depth of planner calls */
-extern int	pgqp_plan_nested_level;
+/* Current nesting depth of planner/ExecutorRun/ProcessUtility calls */
+extern int	pgqp_nesting_level;
 
 /* Links to shared memory state */
 extern pgqpSharedState * pgqp;
