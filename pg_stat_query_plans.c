@@ -871,7 +871,7 @@ pgqp_ExecutorEnd(QueryDesc *queryDesc)
 				   queryDesc->sourceText, planId, queryId, queryDesc,
 				   queryDesc->plannedstmt->stmt_location, queryDesc->plannedstmt->stmt_len,
 #if PG_VERSION_NUM >= 190000
-				   PGQP_EXEC, INSTR_TIME_GET_MICROSEC(queryDesc->query_instr->total),
+				   PGQP_EXEC, INSTR_TIME_GET_MILLISEC(queryDesc->query_instr->total),
 #else
 				   PGQP_EXEC, queryDesc->totaltime->total * 1000.0, /* convert to msec */
 #endif
