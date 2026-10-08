@@ -1367,6 +1367,7 @@ pg_stat_query_plans_reset_minmax(PG_FUNCTION_ARGS)
 		SpinLockAcquire(&e->mutex);
 		for (int kind = 0; kind < PGQP_NUMKIND; kind++)
 		{
+			e->counters.minmax_calls[kind] = 0;
 			e->counters.min_time[kind] = 0;
 			e->counters.max_time[kind] = 0;
 			e->counters.mean_time[kind] = 0;
@@ -1385,6 +1386,7 @@ pg_stat_query_plans_reset_minmax(PG_FUNCTION_ARGS)
 		SpinLockAcquire(&e->mutex);
 		for (int kind = 0; kind < PGQP_NUMKIND; kind++)
 		{
+			e->counters.minmax_calls[kind] = 0;
 			e->counters.min_time[kind] = 0;
 			e->counters.max_time[kind] = 0;
 			e->counters.mean_time[kind] = 0;
@@ -1428,8 +1430,8 @@ pgqp_add_counters_data(pgqpCounters * c, Datum values[0],
 		 * Bessel's correction is not used, and we don't divide by tmp.calls -
 		 * 1.
 		 */
-		if (c->calls[kind] > 1)
-			stddev = sqrt(c->sum_var_time[kind] / c->calls[kind]);
+		if (c->minmax_calls[kind] > 1)
+			stddev = sqrt(c->sum_var_time[kind] / c->minmax_calls[kind]);
 		else
 			stddev = 0.0;
 		values[i++] = Float8GetDatumFast(stddev);

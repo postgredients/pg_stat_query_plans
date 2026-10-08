@@ -89,6 +89,7 @@ typedef struct pgqpCounters
 	int64		calls[PGQP_NUMKIND];	/* # of times planned/executed */
 	double		total_time[PGQP_NUMKIND];	/* total planning/execution time,
 											 * in msec */
+	int64		minmax_calls[PGQP_NUMKIND]; /* # of calls since min/max reset */
 	double		min_time[PGQP_NUMKIND]; /* minimum planning/execution time in
 										 * msec */
 	double		max_time[PGQP_NUMKIND]; /* maximum planning/execution time in
