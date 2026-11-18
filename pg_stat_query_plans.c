@@ -1504,6 +1504,16 @@ pg_stat_query_plans_plan_internal(FunctionCallInfo fcinfo,
 	HASH_SEQ_STATUS hash_seq;
 	pgqpPlanEntry *entry;
 
+/*
+ * Superusers or roles with the privileges of pg_read_all_stats members
+ * are allowed
+ */
+#if PG_VERSION_NUM >= 140000
+	is_allowed_role = has_privs_of_role(userid, ROLE_PG_READ_ALL_STATS);
+#else
+	is_allowed_role = is_member_of_role(GetUserId(), DEFAULT_ROLE_READ_ALL_STATS);
+#endif
+
 	/* hash table must exist already */
 	if (!pgqp || !pgqp_queries || !pgqp_plans || !pgqp_texts)
 		ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
