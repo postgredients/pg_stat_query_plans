@@ -1,7 +1,6 @@
 --
 -- Only superusers and roles with privileges of the pg_read_all_stats role
--- are allowed to see the SQL text and queryid of queries executed by
--- other users. Other users can see the statistics.
+-- are allowed to see statistics of queries executed by other users.
 --
 
 SET pg_stat_query_plans.track_utility = FALSE;
@@ -28,9 +27,8 @@ SELECT r.rolname, ss.queryid <> 0 AS queryid_bool, ss.query, ss.calls, ss.rows
   ORDER BY r.rolname, ss.query COLLATE "C", ss.calls, ss.rows;
 
 --
--- regress_stats_user1 has no privileges to read the query text or
--- queryid of queries executed by others but can see statistics
--- like calls and rows.
+-- regress_stats_user1 has no privileges of pg_read_all_stats and sees
+-- only its own entries.
 --
 
 SET ROLE regress_stats_user1;
